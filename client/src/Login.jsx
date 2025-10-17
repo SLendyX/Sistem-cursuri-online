@@ -6,7 +6,6 @@ export default function(){
 
     function login(e){
         e.preventDefault()
-        React.useEffect(() => {
             fetch("/api/login", {
                 method: 'POST',
                 headers: { "Content-Type": "application/json" },
@@ -15,8 +14,6 @@ export default function(){
                     password
                 })            
             })
-        }, [])
-
         return;
     }
 
@@ -27,14 +24,14 @@ export default function(){
                 required
                 type="text" 
                 placeholder="username" 
-                onInput={setUsername(username)}
+                onChange={e => setUsername(e.target.value)}
                 value={username}
             />
             <input 
                 required
                 type="password" 
                 placeholder="password" 
-                onInput={setPassword(password)}
+                onChange={e => setPassword(e.target.value)}
             />
             <button>Login</button>
         </form>
