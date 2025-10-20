@@ -3,7 +3,7 @@ import React from "react";
 export default function(){
     return (
         <>
-            <h1>Cursuri</h1>
+            <h1>Register</h1>
         </>
     )
 }

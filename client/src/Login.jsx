@@ -19,21 +19,24 @@ export default function(){
 
 
     return(
-        <form onSubmit={login}>
-            <input 
-                required
-                type="text" 
-                placeholder="username" 
-                onChange={e => setUsername(e.target.value)}
-                value={username}
-            />
-            <input 
-                required
-                type="password" 
-                placeholder="password" 
-                onChange={e => setPassword(e.target.value)}
-            />
-            <button>Login</button>
-        </form>
+        <>
+            <h1>Login</h1>
+            <form onSubmit={login}>
+                <input 
+                    required
+                    type="text" 
+                    placeholder="username" 
+                    onChange={e => setUsername(e.target.value)}
+                    value={username}
+                />
+                <input 
+                    required
+                    type="password" 
+                    placeholder="password" 
+                    onChange={e => setPassword(e.target.value)}
+                />
+                <button>Login</button>
+            </form>
+        </>
     )
 }

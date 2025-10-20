@@ -3,7 +3,7 @@ import pool from "../db/pool.js";
 
 const router = express.Router();
 
-router.get("/", async (req, res) => {
+router.get("/api/users", async (req, res) => {
   try {
     const conn = await pool.getConnection();
     const rows = await conn.query("SELECT * FROM user LIMIT 30");
