@@ -1,4 +1,5 @@
 import React from "react";
+import { NavLink } from "react-router"
 
 export default function(){
     const [username, setUsername] = React.useState("")
@@ -36,6 +37,8 @@ export default function(){
                     onChange={e => setPassword(e.target.value)}
                 />
                 <button>Login</button>
+                <p>Don't have an account?</p>
+                <NavLink to={"/register"}>Register here</NavLink>
             </form>
         </>
     )

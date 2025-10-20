@@ -18,7 +18,7 @@ async function findUserByUsername(username) {
   try {
     const conn = await pool.getConnection();
     const rows = await conn.query(
-      "SELECT username, password FROM user WHERE username = ?",
+      "SELECT id, username, password FROM user WHERE username = ?",
       [username]
     );
     conn.release();
@@ -52,7 +52,7 @@ router.post("/login", async (req, res) => {
   }
 
   const token = jwt.sign(
-    { username: username },
+    { userId: user.id },
     process.env.JWT_SECRET,
     { expiresIn: "7d" }
   );
@@ -62,14 +62,29 @@ router.post("/login", async (req, res) => {
 });
 
 // ME
-router.get("/me", (req, res) => {
+router.get("/me", async (req, res) => {
   const token = req.cookies.auth_token;
   if (!token) return res.status(401).json({ error: "Not logged in" });
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log(decoded)
-    res.json({ userId: decoded.username });
+    let rows;
+
+    try{
+      const conn = await pool.getConnection();
+
+      [rows] = await conn.query(
+        `Select username, email, name, type from user where id = ?`,
+        [decoded.userId]
+      );
+      conn.release();
+
+    }catch(err){
+      console.error("Login error:", err);
+      throw err;
+    }
+
+    res.json({ userId: decoded.userId, ...rows });
   } catch {
     res.status(401).json({ error: "Invalid token" });
   }
@@ -80,5 +95,45 @@ router.post("/logout", (req, res) => {
   res.clearCookie("auth_token", { ...COOKIE_OPTIONS, maxAge: 0 });
   res.json({ message: "Logged out" });
 });
+
+
+router.post("/register", async (req, res) => {
+  const { username, email, password, type, name} = req.body
+  const passwordHash = await argon2.hash(password)
+  const valuesArray =[ username, email, passwordHash, type, name]
+  const placeholders = valuesArray.map(() => '?').join(',');
+  let userId
+
+  try{
+    const conn = await pool.getConnection();
+
+    await conn.query(
+      `INSERT INTO user (username, email, password, type, name) VALUES (${placeholders})`,
+      valuesArray
+    );
+
+    [userId] = await conn.query(
+      `Select id from user where username = ?`,
+      [username]
+    );
+
+    conn.release();
+
+  }catch(err){
+    console.error("Login error:", err);
+    throw err;
+  }
+
+  const token = jwt.sign(
+    { userId:userId.id },
+    process.env.JWT_SECRET,
+    { expiresIn: "7d" }
+  );
+
+  res.cookie("auth_token", token, COOKIE_OPTIONS);
+  res.json({ message: "Account succesfully created" });
+
+})
+
 
 export default router;
