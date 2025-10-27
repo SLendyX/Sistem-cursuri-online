@@ -85,6 +85,10 @@ button:hover{
 }
 
 input:focus, textarea:focus, select:focus{
-    outline: none !important;
-    border: 2px solid blue;
+    outline: 2px solid blue;
+}
+
+textarea{
+ resize: none;
+ height: 80px;
 }
