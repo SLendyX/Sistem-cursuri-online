@@ -2,11 +2,8 @@ import React from "react";
 
 export default function(){
     const [profileDetails, setProfileDetails] = React.useState({})
-    const profileDetailsElements = []
 
-    function logOut(){
-        
-    }
+    const profileDetailsElements = []
 
     for(const key in profileDetails){
         profileDetailsElements.push(
@@ -30,10 +27,9 @@ export default function(){
     return (
         <div>
             <h1>Profile</h1>
-            <ul>
+            <li>
                 {profileDetailsElements}
-            </ul>
-            <button>Log out</button>
+            </li>
         </div>
     )
 }

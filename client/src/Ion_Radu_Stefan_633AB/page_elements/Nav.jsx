@@ -3,20 +3,11 @@ import { NavLink } from "react-router";
 
 export default function() {
   const linkArray = ["courses", "about", "login"];
-  const linkText = ["explore course list", "learn more", "login"];
-  const [isLogged, setIsLogged] = React.useState(false)
-
-  React.useEffect(() => {
-    fetch("/api/me")
-    .then(res => res.json())
-    .then(data => setIsLogged(data?.isLogged));
-  }, []);  
-
 
   return (
     <nav className="navbar">
       <NavLink to="/" className="nav-logo">
-        Learnify
+        home
       </NavLink>
 
       <div className="nav-links">
@@ -26,17 +17,14 @@ export default function() {
             key={index}
             className="nav-link"
           >
-            {linkText[index]}
+            {link}
           </NavLink>
         ))}
-        <NavLink
-         to="/profile" 
-         className="nav-link"
-         style={{display:isLogged ? "none" : ""}}
-         >
+      </div>
+
+      <NavLink to="/profile" className="nav-profile">
         profile
       </NavLink>
-      </div>
     </nav>
   );
 }

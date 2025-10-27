@@ -84,9 +84,9 @@ router.get("/me", async (req, res) => {
       throw err;
     }
 
-    res.json({ userId: decoded.userId, ...rows });
+    res.json({ userId: decoded.userId, ...rows, isLogged:true });
   } catch {
-    res.status(401).json({ error: "Invalid token" });
+    res.status(401).json({ error: "Invalid token", isLogged:false });
   }
 });
 
