@@ -37,7 +37,7 @@ export default function(){
                     onChange={e => setPassword(e.target.value)}
                 />
                 <button>Login</button>
-                <p>Don't have an account?</p>
+                <p className="register-text">Don't have an account?</p>
                 <NavLink to={"/register"}>Register here</NavLink>
             </form>
         </>

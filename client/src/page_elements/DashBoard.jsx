@@ -5,10 +5,12 @@ import Nav from "./Nav"
 
 export default function(){
     return(
-        <>
+        <div className="page">
             <Nav/> 
-            <Outlet />
+            <main className="main">
+                <Outlet />
+            </main>
             <Footer />
-        </>
+        </div>
     )
 }

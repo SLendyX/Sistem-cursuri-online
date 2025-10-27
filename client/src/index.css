@@ -1,3 +1,6 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+
+
 *, *::after, *::before{
   box-sizing: border-box;
 }
@@ -5,9 +8,140 @@
 body{
   margin: 0;
   padding: 0;
+  font-family: "Inter", sans-serif;
 }
 
 nav{
   display: flex;
   justify-content: space-around;
+}
+
+main{
+  width: 50%;
+  margin: 0 auto;
+}
+
+form{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .7em;
+  padding: 1;
+  margin-top:2rem;
+}
+
+input, select{
+  background: none;
+  padding: .3em .5em;
+  font-size: 1rem;
+  border-radius: 10px;
+}
+
+/* select{
+  margin-right:25%;
+} */
+
+form button{
+  font-size: 1.2rem;
+  margin-top: 1em;
+  border: .5px solid #bbbb;
+  border-radius: 30px;
+  background-color: orangered;
+  padding: .5em 1em;
+  color:whitesmoke;
+  font-weight:700;
+  cursor: pointer;
+}
+
+button:hover{
+  opacity: 0.9;
+  box-shadow: 0 0 10px rgb(110, 107, 107);
+}
+
+h1{
+  text-align: center;
+}
+
+.register-text{
+  margin-bottom: .1em;
+}
+
+footer{
+  margin: auto 0 0 0;
+  text-align: center;
+}
+
+
+/* Navbar container */
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #1e40af; /* nice blue */
+  padding: 0.5rem 1rem;
+  color: white;
+  font-family: sans-serif;
+}
+
+/* Logo */
+.nav-logo {
+  font-weight: bold;
+  font-size: 1.5rem;
+  color: white;
+  text-decoration: none;
+}
+
+/* Links container */
+.nav-links {
+  display: flex;
+  gap: 1rem;
+}
+
+/* Individual links */
+.nav-link {
+  color: white;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.nav-link:hover {
+  color: #93c5fd; /* light blue on hover */
+}
+
+/* Active link styling */
+.nav-link.active {
+  border-bottom: 2px solid #93c5fd;
+}
+
+/* Profile link */
+.nav-profile {
+  color: white;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.nav-profile:hover {
+  color: #93c5fd;
+}
+
+
+
+footer {
+  background-color: #1e40af;
+  color: white;
+  text-align: center;
+  padding: 1rem 0;
+}
+
+/* Page wrapper */
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh; /* full viewport height */
+}
+
+/* Main content grows to fill space */
+.main {
+  flex: 1;
 }

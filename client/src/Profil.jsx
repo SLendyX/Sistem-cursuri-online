@@ -26,7 +26,7 @@ export default function(){
 
     return (
         <div>
-            <h1>Profil</h1>
+            <h1>Profile</h1>
             <li>
                 {profileDetailsElements}
             </li>

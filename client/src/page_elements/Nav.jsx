@@ -1,30 +1,30 @@
 import React from "react";
 import { NavLink } from "react-router";
 
-export default function(){
+export default function() {
+  const linkArray = ["courses", "about", "login"];
 
-    const linkArray = ["courses", "about", "login",]
+  return (
+    <nav className="navbar">
+      <NavLink to="/" className="nav-logo">
+        home
+      </NavLink>
 
-    return(
-        <nav>
-            <NavLink 
-                to={"/"}
-            >
-                home
-            </NavLink>
-            {linkArray.map((link, index) => {
-                return (<NavLink
-                    to={`/${link}`}
-                    key={index}
-                >
-                    {link}
-                </NavLink>)
-            })}
-            <NavLink 
-                to={"/profile"}
-            >
-                profile
-            </NavLink>
-        </nav>
-    )
+      <div className="nav-links">
+        {linkArray.map((link, index) => (
+          <NavLink
+            to={`/${link}`}
+            key={index}
+            className="nav-link"
+          >
+            {link}
+          </NavLink>
+        ))}
+      </div>
+
+      <NavLink to="/profile" className="nav-profile">
+        profile
+      </NavLink>
+    </nav>
+  );
 }

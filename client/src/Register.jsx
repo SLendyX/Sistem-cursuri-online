@@ -63,9 +63,8 @@ export default function(){
                     <option>student</option>
                 </select>
 
-                <label style={{display: password != retypePassword ? "block" : "none"}}>Passwords are not same</label>
-
                 <button>Register</button>
+                <label style={{display: password != retypePassword ? "block" : "none", color:"red"}}>Passwords are not same</label>
             </form>
         </>
     )
