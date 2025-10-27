@@ -1,11 +1,90 @@
-img{
-    width:200px;
+*, *::after, *::before{
+    box-sizing: border-box;
 }
 
-article{
-    width:40%;
+body{
+    margin: 0;
+    padding: 0;
 }
+
+main {
+    text-align: center;
+    display: block;
+    margin: 0 auto;
+    max-width: 500px;
+}
+
+img{
+    width: 100%;
+    border-radius: 15px;
+    box-shadow: 0 0 50px #949393;
+}
+table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+td, th {
+    padding: 8px;
+    border: 1px solid #bababa;
+}
+
+th{
+    background-color: green;
+}
+
+tr:nth-child(even){
+    background-color: rgb(61, 209, 61);
+}
+
+tr:nth-child(odd){
+    background-color: rgb(139, 251, 139);
+}
+
+tr:hover{
+    background-color: white;
+}
+
 
 label{
     display: block;
+}
+
+
+
+fieldset div{
+    display: flex;
+    justify-content: start;
+    align-items: center;
+}
+
+form{
+    width: 250px;
+    margin:0 auto;
+    box-shadow: 0 0 20px rgb(150, 150, 150);
+    padding: 1em;
+}
+
+input{
+    padding: 0.5em 0.7em;
+}
+
+#submit{
+    background-color: orange;
+    color:white;
+}
+
+button{
+    padding: .3em .5em; 
+}
+
+button:hover{
+    opacity: 0.9;
+    cursor:pointer;
+    
+}
+
+input:focus, textarea:focus, select:focus{
+    outline: none !important;
+    border: 2px solid blue;
 }

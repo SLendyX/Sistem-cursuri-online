@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+    <head>
+       <title>Retetele mele</title>
+       <meta charset="UTF-8"/>
+       <link rel="stylesheet" href="./index.css" /> 
+    </head>
+    <body>
+        <main>
+            <h1>Formular de inregistrare animale</h1>
+            <p>Completa-ti formularul de mai jos pentru a va inregistra animalul</p>
+            <form>
+                <label>
+                    Nume stapan:
+                </label>
+                <input id="stapan" type="text" name="stapan" required/>
+                
+                <label>
+                    Telefon:
+                </label>
+                <input id="telefon" type="tel" name="telefon" required/>
+
+                <label>
+                    Nume animal:
+                </label>
+                <input id="nume-animal" name="nume-animal" type="text" required/>
+
+                <label>
+                    Specie
+                </label>
+                <select>
+                    <option value="caine">Caine</option>
+                    <option value="pisica">Pisica</option>
+                    <option value="hamster">Hamster</option>
+                    <option value="papagal">Papagal</option>
+                </select>
+
+                <fieldset>
+                    <legend>
+                        Sexul Animalului
+                    </legend>
+                    <div>
+                        <input id="mascul" type="radio" name="sex" value="mascul"/>
+                        <label for="mascul">Mascul</label>
+                    </div>
+                    <div>
+                        <input id="femela" type="radio" name="sex" value="femela"/>
+                        <label for="femela">Femela</label>
+                    </div>
+                </fieldset>
+                
+                <fieldset>
+                    <legend>
+                        Servicii dorite
+                    </legend>
+                    <div>
+                        <input id="vaccinare" type="checkbox" name="servicii" value="vaccinare"/>
+                        <label for="vaccinare">Vaccinare</label>
+                    </div>
+                    <div>
+                        <input id="deparazitare" type="checkbox" name="servicii" value="deparazitare"/>
+                        <label for="deparazitare">Deparazitare</label>
+                    </div>
+                    <div>
+                        <input id="consult" type="checkbox" name="servicii" value="consult"/>
+                        <label for="consult">Consult</label>
+                    </div>
+                </fieldset>
+                <label for="observatii">Observatii:</label>
+                <textarea id="observatii"></textarea>
+                <div>
+                    <button id="submit" type="submit">Trimite</button>
+                    <button type="reset">Reseteaza</button>
+                </div>
+            </form>
+    </body>
+</html>
