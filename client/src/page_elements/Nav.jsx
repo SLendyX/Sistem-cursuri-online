@@ -7,11 +7,12 @@ export default function() {
   const [isLogged, setIsLogged] = React.useState(false)
 
   React.useEffect(() => {
-    fetch("/api/me")
+    fetch("/api/profile")
     .then(res => res.json())
     .then(data => setIsLogged(data?.isLogged));
   }, []);  
 
+  console.log(isLogged)
 
   return (
     <nav className="navbar">
@@ -32,7 +33,7 @@ export default function() {
         <NavLink
          to="/profile" 
          className="nav-link"
-         style={{display:isLogged ? "none" : ""}}
+         style={{display:isLogged ? "" : "none"}}
          >
         profile
       </NavLink>

@@ -5,7 +5,14 @@ export default function(){
     const profileDetailsElements = []
 
     function logOut(){
-        
+        fetch("/api/logout", {
+                method: 'POST',
+                headers: { "Content-Type": "application/json" }            
+            })
+        .then(res => res.json())
+        .then(data => {
+            return data
+        })
     }
 
     for(const key in profileDetails){
@@ -22,7 +29,7 @@ export default function(){
     }
 
     React.useEffect(() => {
-        fetch("/api/me")
+        fetch("/api/profile")
         .then(res => res.json())
         .then(data => setProfileDetails(data));
     }, []);
@@ -33,7 +40,7 @@ export default function(){
             <ul>
                 {profileDetailsElements}
             </ul>
-            <button>Log out</button>
+            <button onClick={logOut}>Log out</button>
         </div>
     )
 }

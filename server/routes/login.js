@@ -62,7 +62,7 @@ router.post("/login", async (req, res) => {
 });
 
 // ME
-router.get("/me", async (req, res) => {
+router.get("/profile", async (req, res) => {
   const token = req.cookies.auth_token;
   if (!token) return res.status(401).json({ error: "Not logged in" });
 
