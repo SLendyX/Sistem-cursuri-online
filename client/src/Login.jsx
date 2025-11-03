@@ -22,7 +22,7 @@ export default function(){
     return(
         <>
             <h1>Login</h1>
-            <form onSubmit={login}>
+            <form onSubmit={login} className="login-form">
                 <input 
                     required
                     type="text" 
@@ -38,7 +38,7 @@ export default function(){
                 />
                 <button>Login</button>
                 <p className="register-text">Don't have an account?</p>
-                <NavLink to={"/register"}>Register here</NavLink>
+                <NavLink className={"redirect-link"} to={"/register"}>Register here</NavLink>
             </form>
         </>
     )

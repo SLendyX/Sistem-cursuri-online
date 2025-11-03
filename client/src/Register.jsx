@@ -1,4 +1,5 @@
 import React from "react";
+import { NavLink } from "react-router"
 
 export default function(){
     const [username, setUsername] = React.useState("")
@@ -56,12 +57,14 @@ export default function(){
     return (
         <>
             <h1>Register</h1>
-            <form onSubmit={sendRegister}>
+            <form onSubmit={sendRegister} className="register-form">
                 {inputElementArray}
                 <select value={type} onChange={e => setType(e.target.value)}>
                     <option>professor</option>
                     <option>student</option>
                 </select>
+                <p className="login-text">Already have an account?</p>
+                <NavLink className={"redirect-link"} to={"/login"}>Login here</NavLink>
 
                 <button>Register</button>
                 <label style={{display: password != retypePassword ? "block" : "none", color:"red"}}>Passwords are not same</label>

@@ -16,9 +16,11 @@ export default function() {
 
   return (
     <nav className="navbar">
-      <NavLink to="/" className="nav-logo">
-        Learnify
-      </NavLink>
+      <header>
+        <NavLink to="/" className="nav-logo">
+          Learnify
+        </NavLink>
+      </header>
 
       <div className="nav-links">
         {linkArray.map((link, index) => (

@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
+import defaultImage from "./assets/default.jpg"
 
 export default function () {
+  const imagePath = 
+  useEffect(() => {
+
+  }, [])
 
   return (
     <>
@@ -14,19 +19,19 @@ export default function () {
       <h2>Featured Courses</h2>
       <div className="course-grid">
         <div className="course-card">
-          <img src="api/images/default.jpg" alt="Course thumbnail" />
+          <img className="course-thumbnail" src={defaultImage} alt="Course thumbnail" />
           <h3>Introduction to Programming</h3>
           <p>By John Doe</p>
         </div>
 
         <div className="course-card">
-          <img src="/images/default-thumbnail.webp" alt="Course thumbnail" />
+          <img className="course-thumbnail" src={defaultImage} alt="Course thumbnail" />
           <h3>Advanced Web Development</h3>
           <p>By Jane Smith</p>
         </div>
 
         <div className="course-card">
-          <img src="/images/default-thumbnail.webp" alt="Course thumbnail" />
+          <img className="course-thumbnail" src={defaultImage} alt="Course thumbnail" />
           <h3>Data Science Basics</h3>
           <p>By Mark Lee</p>
         </div>
