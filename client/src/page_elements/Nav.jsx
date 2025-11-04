@@ -1,18 +1,12 @@
 import React from "react";
 import { NavLink } from "react-router";
+import { LoggedContext } from "../context/LoggedContext";
 
 export default function() {
   const linkArray = ["courses", "about", "login"];
   const linkText = ["explore course list", "learn more", "login"];
-  const [isLogged, setIsLogged] = React.useState(false)
 
-  React.useEffect(() => {
-    fetch("/api/profile")
-    .then(res => res.json())
-    .then(data => setIsLogged(data?.isLogged));
-  }, []);  
-
-  console.log(isLogged)
+  const logged = React.useContext(LoggedContext) 
 
   return (
     <nav className="navbar">
@@ -35,7 +29,7 @@ export default function() {
         <NavLink
          to="/profile" 
          className="nav-link"
-         style={{display:isLogged ? "" : "none"}}
+         style={{display:logged.isLogged ? "" : "none"}}
          >
         profile
       </NavLink>

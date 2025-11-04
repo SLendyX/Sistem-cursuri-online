@@ -1,8 +1,35 @@
-import React from "react";
+import React, { useContext } from "react";
+import { useLocation } from "react-router";
+import { LoggedContext } from "./context/LoggedContext";
+import { useNavigate } from "react-router";
 
 export default function(){
     const [profileDetails, setProfileDetails] = React.useState({})
+    const [fromLogin, setFromLogin] = React.useState(false)
     const profileDetailsElements = []
+
+    const location = useLocation();
+    const navigate = useNavigate();
+
+    const logged = useContext(LoggedContext)
+
+    React.useEffect(() => {
+        fetch("/api/profile")
+        .then(res => res.json())
+        .then(data => setProfileDetails(data));
+
+        setFromLogin(location.state?.fromLogin)
+    }, []);
+
+    React.useEffect(() => {
+        if(fromLogin){
+            logged.setIsLogged(true)
+            setTimeout(() => {
+                setFromLogin(false)
+            }, 3000)
+            
+        }
+    },[fromLogin])
 
     function logOut(){
         fetch("/api/logout", {
@@ -11,7 +38,11 @@ export default function(){
             })
         .then(res => res.json())
         .then(data => {
-            return data
+            logged.setIsLogged(false)
+            setProfileDetails({err: "You have been logged out."})
+            navigate("/")
+        }).catch(err => {
+            console.error("Error logging out:", err)
         })
     }
 
@@ -28,19 +59,19 @@ export default function(){
         )
     }
 
-    React.useEffect(() => {
-        fetch("/api/profile")
-        .then(res => res.json())
-        .then(data => setProfileDetails(data));
-    }, []);
 
     return (
         <div>
+            <p className="login-success-message"
+                style={{display: fromLogin ? "block" : "none"}}
+            >You have logged in succesfully!</p>
             <h1>Profile</h1>
             <ul>
                 {profileDetailsElements}
             </ul>
-            <button onClick={logOut}>Log out</button>
+            <button 
+            style={{display: logged.isLogged ? "block" : "none"}}
+            onClick={logOut}>Log out</button>
         </div>
     )
 }

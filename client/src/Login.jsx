@@ -1,9 +1,11 @@
 import React from "react";
-import { NavLink } from "react-router"
+import { NavLink, useNavigate } from "react-router"
 
 export default function(){
     const [username, setUsername] = React.useState("")
     const [password, setPassword] = React.useState("")
+    const redirectLogIn = useNavigate()
+
 
     function login(e){
         e.preventDefault()
@@ -14,7 +16,16 @@ export default function(){
                     username,
                     password
                 })            
+            }).then(res => res.json())
+            .then(data => {
+                redirectLogIn("/profile", {
+                    state: {
+                        fromLogin: true
+                    }
+                })
             })
+
+
         return;
     }
 
