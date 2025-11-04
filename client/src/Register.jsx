@@ -1,5 +1,6 @@
 import React from "react";
-import { NavLink } from "react-router"
+import { NavLink, useNavigate } from "react-router"
+import { LoggedContext } from "./context/LoggedContext";
 
 export default function(){
     const [username, setUsername] = React.useState("")
@@ -8,6 +9,9 @@ export default function(){
     const [retypePassword, setRetypePassword] = React.useState("")
     const [name, setName] = React.useState("")
     const [type, setType] = React.useState("professor")
+
+    const redirectRegister = useNavigate()
+    const logged = React.useContext(LoggedContext)
 
     const stateArray = {
         constants:[username, email, password, retypePassword, name],
@@ -48,6 +52,14 @@ export default function(){
                     type,
                     name
                 })            
+            }).then(res => res.json())
+            .then(data => {
+                logged.setIsLogged(true)
+                redirectRegister("/profile", {
+                    state: {
+                        fromLogin: true
+                    }
+                })
             })
 
         return

@@ -22,6 +22,7 @@ export default function() {
             to={`/${link}`}
             key={index}
             className="nav-link"
+            style={link === "login" ? {display: logged.isLogged ? "none" : ""} : {}}
           >
             {linkText[index]}
           </NavLink>

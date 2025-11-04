@@ -14,8 +14,48 @@ body{
   margin: 0;
   padding: 0;
   font-family: "Roboto Slab", serif;
-  --dashboard-background: #1e40af;
+  background-color: var(--background-body);
+  
+  /* Backgrounds */
+  --dashboard-background: #F4F1EE;  /* light neutral beige */
+  --background-body: #FFFFFF;       /* main page background */
+  --form-background: #F9F6F5;       /* slightly off-white for forms */
+
+  /* Text */
+  --text-color-dark: #1F1D2B;       /* deep muted navy/charcoal */
+  --text-color-light: #A3A0B1;      /* soft gray for placeholders / secondary text */
+
+  /* Buttons */
+  --button-background: #28AFB0;     /* teal/cyan for primary buttons */
+  --button-hover: #1F8C8A;          /* darker teal for hover state */
+  --button-active: #176767;         /* even darker teal for active state */
+
+  /* Borders */
+  --border-color: #D1CFCF;          /* soft gray for inputs / cards */
+
+  /* Accents / Links / Underlines */
+  --underline-text: #FF6B6B;        /* coral for links and hover accents */
+  --link-color: #28AFB0;            /* matching teal for links */
+  --link-hover: #FF6B6B;            /* coral hover for links */
+  
+  /* Form inputs */
+  --input-focus-border: #28AFB0;    /* teal for focused inputs */
+  --input-placeholder: #A3A0B1;     /* soft gray placeholder text */
+
+  /* Cards / Shadows */
+  --card-shadow: rgba(0, 0, 0, 0.1); /* subtle shadow for cards and forms */
+
+
+  color: var(--text-color-dark);
+
+  
+  /* #1e40af */
 }
+/* 
+#474A48
+#2C302E
+#0F0326
+*/
 
 main{
   width: 50%;
@@ -23,8 +63,18 @@ main{
   flex: 1;
 }
 
+main a{
+  color: var(--link-color);
+  font-weight: 500;
+}
+
+main a:hover{
+  text-decoration: underline;
+  color: var(--link-hover);
+}
+
 footer, nav, .navbar a{
-  color:white;
+  color: var(--text-color-dark);
 }
 
 
@@ -82,31 +132,39 @@ form{
 }
 
 .login-form, .register-form{
-  background-color: white;
+  background-color: var(--form-background);
   padding: 2em;
   box-shadow: 1px 1px 5px rgb(138, 136, 136);
   border-radius: 5px;
 }
 
 form button{
-  font-size: 1.2rem;
-  margin-top: 1em;
-  border: .5px solid #bbbb;
-  border-radius: 30px;
-  background-color: orangered;
-  padding: .5em 1em;
-  color:whitesmoke;
-  font-weight:700;
-  cursor: pointer;
   width: 100%;
 }
 
+button{
+  font-size: 1.2rem;
+  margin-top: 1em;
+  border: .5px solid var(--border-color);
+  border-radius: 30px;
+  /* background-color: orangered; */
+  background-color: var(--button-background);
+  padding: .5em 1em;
+  color:var(--text-color-dark);
+  font-weight:700;
+  cursor: pointer;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+
+
+}
+
 button:hover{
-  background-color: #e53e02;
+  background-color: var(--button-hover);
   box-shadow: 0 0 3px rgb(48, 47, 47);
 }
 
 button:active{
+  background-color: var(--button-active);
   box-shadow: inset 1px 1px 10px black;
 }
 
@@ -115,12 +173,16 @@ form input, form select{
   padding: .3em .5em;
   font-size: 1rem;
   border-radius: 10px;
-  border: 1px solid #bbbb;
+  border: 1px solid var(--border-color);
+}
+
+form input::placeholder{
+  color: var(--text-color-light);
 }
 
 form input:focus, form select:focus{
   outline: none;
-  border: 2px solid #1e40af;
+  border: 2px solid var(--input-focus-border);
 }
 
 .register-text, .login-text{
@@ -129,12 +191,13 @@ form input:focus, form select:focus{
 
 .redirect-link{
   text-decoration: none;
-  color: #1e40af;
+  color: var(--link-color);
   font-weight: 500;
 }
 
 .redirect-link:hover{
   text-decoration: underline;
+  color: var(--link-hover);
 }
 
 /*------ navigation --------*/
@@ -143,8 +206,8 @@ form input:focus, form select:focus{
   position: fixed;
   bottom: 100px;
   right: 20px;
-  background-color: #1e40af;
-  color: white;
+  background-color: var(--button-background);
+  /* color: white; */
   border: none;
   padding: 10px 15px;
   border-radius: 5px;
@@ -152,6 +215,10 @@ form input:focus, form select:focus{
   font-size: 16px;
   box-shadow: 0 2px 5px rgba(0,0,0,0.3);
   transition: background-color 0.3s, box-shadow 0.3s;
+}
+
+.back-to-top-button:hover{
+  background-color: var(--button-hover);
 }
 
 /* Links container */
@@ -170,11 +237,11 @@ form input:focus, form select:focus{
 
 /* Active link styling */
 .nav-link:hover {
-  border-bottom: 2px solid #93c5fd;
+  border-bottom: 2px solid  var(--underline-text);
 }
 
 .nav-link.active{
-  border-bottom: 2px solid #FFF;
+  border-bottom: 2px solid var(--underline-text);
 }
 
 /* Profile link */
@@ -187,7 +254,7 @@ form input:focus, form select:focus{
   color: #93c5fd;
 } */
 .navbar a:hover{
-  color: #93c5fd;
+  color: var(--underline-text);
 }
 
 /* Navbar container */
@@ -226,12 +293,12 @@ footer{
 
 .course-card{
   width: 80%;
-  border: 1px solid #bbbb;
+  border: 1px solid var(--border-color);
   border-radius: 5px;
   padding: 1em;
   margin: 0 auto;
   margin-bottom: 1.5em;
-  box-shadow: 1px 1px 5px rgb(138, 136, 136);
+  box-shadow: 1px 1px 5px var(--card-shadow);
 }
 
 .courses-container{

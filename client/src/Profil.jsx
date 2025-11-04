@@ -8,7 +8,6 @@ export default function(){
     const [fromLogin, setFromLogin] = React.useState(false)
     const profileDetailsElements = []
 
-    const location = useLocation();
     const navigate = useNavigate();
 
     const logged = useContext(LoggedContext)
@@ -17,19 +16,7 @@ export default function(){
         fetch("/api/profile")
         .then(res => res.json())
         .then(data => setProfileDetails(data));
-
-        setFromLogin(location.state?.fromLogin)
     }, []);
-
-    React.useEffect(() => {
-        if(fromLogin){
-            logged.setIsLogged(true)
-            setTimeout(() => {
-                setFromLogin(false)
-            }, 3000)
-            
-        }
-    },[fromLogin])
 
     function logOut(){
         fetch("/api/logout", {
@@ -40,7 +27,11 @@ export default function(){
         .then(data => {
             logged.setIsLogged(false)
             setProfileDetails({err: "You have been logged out."})
-            navigate("/")
+            navigate("/", {
+                state: {
+                    fromLogOut: true
+                }
+            })
         }).catch(err => {
             console.error("Error logging out:", err)
         })
@@ -62,9 +53,6 @@ export default function(){
 
     return (
         <div>
-            <p className="login-success-message"
-                style={{display: fromLogin ? "block" : "none"}}
-            >You have logged in succesfully!</p>
             <h1>Profile</h1>
             <ul>
                 {profileDetailsElements}

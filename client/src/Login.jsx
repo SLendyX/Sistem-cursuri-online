@@ -1,11 +1,13 @@
 import React from "react";
 import { NavLink, useNavigate } from "react-router"
+import { LoggedContext } from "./context/LoggedContext";
 
 export default function(){
     const [username, setUsername] = React.useState("")
     const [password, setPassword] = React.useState("")
-    const redirectLogIn = useNavigate()
 
+    const redirectLogIn = useNavigate()
+    const logged = React.useContext(LoggedContext)
 
     function login(e){
         e.preventDefault()
@@ -18,6 +20,7 @@ export default function(){
                 })            
             }).then(res => res.json())
             .then(data => {
+                logged.setIsLogged(true)
                 redirectLogIn("/profile", {
                     state: {
                         fromLogin: true
