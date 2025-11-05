@@ -1,5 +1,6 @@
 import React from "react";
 import defaultImage from "./assets/default.jpg"
+import CourseCard from "./CourseCard";
 
 export default function(){
     React.useEffect(()=>{
@@ -24,37 +25,11 @@ export default function(){
 
     const [cursuri, setCursuri] = React.useState([])
 
-    /*
-        -autor
-        -nume curs
-        -pret
-        -imagine
-        -descriere
-
-        <div className="course-card">
-            <h3>{numeCurs}</h3>
-            <img className="course-thumbnail" src={imagine} alt={numeCurs} />
-            <div className="course-info">
-                <p className="course-description">{descriere}</p>
-            </div>
-            <div className="course-footer">
-                <p className="course-price">Price: {pret}</p>
-                <p className="course-author">By {autor}</p>
-            </div>
-        </div>
-    */
     const courseElements = cursuri.map((curs, index) => (
-        <div className="course-card" key={index}>
-            <h3>{curs.numeCurs}</h3>
-            <img className="course-thumbnail" src={curs.imagine} alt={curs.numeCurs} />
-            <div className="course-info">
-                <p className="course-description">{curs.descriere}</p>
-            </div>
-            <div className="course-footer">
-                <p className="course-price">Price: {curs.pret}</p>
-                <p className="course-author">By {curs.autor}</p>
-            </div>
-        </div>
+        <CourseCard 
+            curs={curs}
+            key={index}
+        />
     ))
 
     return (

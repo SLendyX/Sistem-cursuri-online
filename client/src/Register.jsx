@@ -10,6 +10,8 @@ export default function(){
     const [name, setName] = React.useState("")
     const [type, setType] = React.useState("professor")
 
+    const [errorMessage, setErrorMessage] = React.useState("")
+
     const redirectRegister = useNavigate()
     const logged = React.useContext(LoggedContext)
 
@@ -52,14 +54,26 @@ export default function(){
                     type,
                     name
                 })            
-            }).then(res => res.json())
+            }).then(async res => {
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw { error: data.error || "Something went wrong." };
+                }
+
+                return data;
+            })
             .then(data => {
                 logged.setIsLogged(true)
+                localStorage.setItem("modalHidden", "false");
                 redirectRegister("/profile", {
                     state: {
                         fromLogin: true
                     }
                 })
+            })
+            .catch(err => {
+                setErrorMessage(err)
             })
 
         return
@@ -79,6 +93,7 @@ export default function(){
                 <NavLink className={"redirect-link"} to={"/login"}>Login here</NavLink>
 
                 <button>Register</button>
+                {errorMessage !== "" && <p className="error-message">{errorMessage}</p>}
                 <label style={{display: password != retypePassword ? "block" : "none", color:"red"}}>Passwords are not same</label>
             </form>
         </>

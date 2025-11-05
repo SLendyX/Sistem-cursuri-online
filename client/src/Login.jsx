@@ -5,31 +5,36 @@ import { LoggedContext } from "./context/LoggedContext";
 export default function(){
     const [username, setUsername] = React.useState("")
     const [password, setPassword] = React.useState("")
+    const [errorMessage, setErrorMessage] = React.useState("")
 
     const redirectLogIn = useNavigate()
     const logged = React.useContext(LoggedContext)
 
-    function login(e){
-        e.preventDefault()
-            fetch("/api/login", {
-                method: 'POST',
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    username,
-                    password
-                })            
-            }).then(res => res.json())
-            .then(data => {
-                logged.setIsLogged(true)
-                redirectLogIn("/profile", {
-                    state: {
-                        fromLogin: true
-                    }
-                })
-            })
+    function login(e) {
+        e.preventDefault();
 
+        fetch("/api/login", {
+            method: 'POST',
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password })
+        })
+        .then(async res => {
+            const data = await res.json(); // parse JSON response
 
-        return;
+            if (!res.ok) {
+                throw { error: data.error || "Something went wrong." };
+            }
+
+            return data;
+        })
+        .then(data => {
+            logged.setIsLogged(true);
+            localStorage.setItem("modalHidden", "false");
+            redirectLogIn("/profile", { state: { fromLogin: true } });
+        })
+        .catch(err => {
+            setErrorMessage(err.error);
+        });
     }
 
 
@@ -39,8 +44,8 @@ export default function(){
             <form onSubmit={login} className="login-form">
                 <input 
                     required
-                    type="text" 
-                    placeholder="username" 
+                    type="text"
+                    placeholder="username/email" 
                     onChange={e => setUsername(e.target.value)}
                     value={username}
                 />
@@ -51,6 +56,7 @@ export default function(){
                     onChange={e => setPassword(e.target.value)}
                 />
                 <button>Login</button>
+                {errorMessage !== "" && <p className="error-message">{errorMessage}</p>}
                 <p className="register-text">Don't have an account?</p>
                 <NavLink className={"redirect-link"} to={"/register"}>Register here</NavLink>
             </form>

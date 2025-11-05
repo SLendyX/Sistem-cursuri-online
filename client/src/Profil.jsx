@@ -1,11 +1,9 @@
 import React, { useContext } from "react";
-import { useLocation } from "react-router";
 import { LoggedContext } from "./context/LoggedContext";
 import { useNavigate } from "react-router";
 
 export default function(){
     const [profileDetails, setProfileDetails] = React.useState({})
-    const [fromLogin, setFromLogin] = React.useState(false)
     const profileDetailsElements = []
 
     const navigate = useNavigate();
@@ -15,7 +13,11 @@ export default function(){
     React.useEffect(() => {
         fetch("/api/profile")
         .then(res => res.json())
-        .then(data => setProfileDetails(data));
+        .then(data => {setProfileDetails(data)
+            logged.setIsLogged(true)
+        }
+    )
+        .catch(err => setProfileDetails(err))
     }, []);
 
     function logOut(){
@@ -27,6 +29,7 @@ export default function(){
         .then(data => {
             logged.setIsLogged(false)
             setProfileDetails({err: "You have been logged out."})
+            localStorage.setItem("modalHidden", "false");
             navigate("/", {
                 state: {
                     fromLogOut: true

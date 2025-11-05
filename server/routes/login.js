@@ -18,8 +18,8 @@ async function findUserByUsername(username) {
   try {
     const conn = await pool.getConnection();
     const rows = await conn.query(
-      "SELECT id, username, password FROM user WHERE username = ?",
-      [username]
+      "SELECT id, username, password FROM user WHERE username = ? OR email = ?",
+      [username, username]
     );
     conn.release();
     return rows[0];

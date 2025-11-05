@@ -168,6 +168,10 @@ button:active{
   box-shadow: inset 1px 1px 10px black;
 }
 
+form input{
+  width: 250px;
+}
+
 form input, form select{
   background: none;
   padding: .3em .5em;
@@ -198,6 +202,11 @@ form input:focus, form select:focus{
 .redirect-link:hover{
   text-decoration: underline;
   color: var(--link-hover);
+}
+
+.error-message{
+  color:red;
+  margin:.1em;
 }
 
 /*------ navigation --------*/
@@ -271,6 +280,55 @@ form input:focus, form select:focus{
   font-weight: bold;
   font-size: 1.5rem;
   text-decoration: none;
+}
+
+.popup-message{
+  position: fixed;
+  top:35px;
+  right:0;
+  left:0;
+  display: flex;
+  justify-content: center;
+  z-index: 1000;
+  animation: popup 1.5s ease-in-out forwards;
+}
+
+@keyframes popup {
+  0% { opacity: 0; transform: translateY(-35px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.success-message, .info-message{
+  color: white;
+  border-radius: 8px;
+  padding: .6em .95em;
+  font-size: 1rem;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+.success-message{
+  background-color: #4caf50;
+}
+
+.info-message{
+  background-color: #2196f3;
+}
+
+.btn-container{
+  position:relative;
+}
+
+.btn-container .close-modal{
+  position: absolute;
+  top:0px;
+  right: 0;
+  font-size: 1rem;
+  padding: 0 0 .2em 0;
+  width: 1rem;
+  height: 1rem;
+  background-color: transparent;
+  border-radius: 50%;
+  border: none;
 }
 
 /*------ footer --------*/
