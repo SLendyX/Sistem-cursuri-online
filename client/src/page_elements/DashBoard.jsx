@@ -11,6 +11,19 @@ export default function(){
     const [isLogged, setIsLogged] = React.useState(false);
     const location = useLocation();
 
+    React.useEffect(() => {
+            fetch("/api/profile")
+            .then(async (res) => {
+                const data = await res.json()
+                if(!res.ok)
+                    throw{error: data.error}
+                setIsLogged(true)
+            })
+            .catch(err =>{
+                console.error(err.error)
+            })
+    }, []);
+
     return(
         <div className="site-page-container">
            

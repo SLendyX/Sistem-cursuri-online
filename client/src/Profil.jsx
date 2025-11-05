@@ -12,12 +12,20 @@ export default function(){
 
     React.useEffect(() => {
         fetch("/api/profile")
-        .then(res => res.json())
-        .then(data => {setProfileDetails(data)
-            logged.setIsLogged(true)
+        .then(async res => {
+            const data = await res.json(); // parse JSON response
+
+            if (!res.ok) {
+                throw { error: data.error || "Something went wrong." };
+            }
+
+            return data;
+        })
+        .then(data => {
+            setProfileDetails(data)
         }
     )
-        .catch(err => setProfileDetails(err))
+        .catch(err => setProfileDetails(err.error))
     }, []);
 
     function logOut(){

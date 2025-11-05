@@ -12,7 +12,7 @@ export default function () {
       <section className="hero">
         <h2>Expand Your Knowledge</h2>
         <p>Browse courses from top instructors and start learning today.</p>
-        <a href="/courses" class="btn">Browse Courses</a>
+        <a href="/courses" className="btn">Browse Courses</a>
       </section>
 
       <section className="courses">
