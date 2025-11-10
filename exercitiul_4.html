@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+</head>
+
+<body>
+    <script>
+        function esteDreptunghi(...laturi){
+            if (laturi.length !== 4){
+                console.log("Nu sunt destule puncte")
+                return false
+            }
+
+            if(laturi[0] == laturi[2] && laturi[1] == laturi[3]){
+                console.log(`Cele 4 numere (${laturi.toString()}) pot reprezenta laturi ale unui dreptunghi`)
+                return true
+            }else{
+                console.log(`Cele 4 numere (${laturi.toString()}) nu pot reprezenta laturi ale unui dreptunghi`)
+                return false       
+            }           
+        }
+
+        esteDreptunghi(25, 4, 25, 16)
+        esteDreptunghi(13, 17, 13, 17)
+
+    </script>
+    </body>
+</html >
