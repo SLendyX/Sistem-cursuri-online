@@ -1,6 +1,5 @@
 import React from "react";
 import { NavLink, useNavigate } from "react-router"
-import { LoggedContext } from "./context/LoggedContext";
 
 export default function(){
     const [username, setUsername] = React.useState("")
