@@ -9,7 +9,9 @@ import LogingMessages from "./LogingMessages";
 
 export default function(){
     const [isLogged, setIsLogged] = React.useState(false);
+    
     const location = useLocation();
+
 
     React.useEffect(() => {
             fetch("/api/profile")
@@ -30,8 +32,8 @@ export default function(){
             <LoggedContext value={{isLogged, setIsLogged}}>
                 <Nav/> 
                 <LogingMessages
-                    fromLogin={location.state?.fromLogin}
-                    fromLogOut={location.state?.fromLogOut}
+                    changeFlag={(location.state?.fromLogin || location.state?.fromLogOut) ? isLogged : }
+                    popUpType={location.state?.fromLogin? 0 : location.state?.fromLogOut ? 1 :  1}
                 >
                     {location.state?.message}
                 </LogingMessages>

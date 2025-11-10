@@ -140,10 +140,6 @@ router.post("/register", async (req, res) => {
     console.error("Login error:", err);
     res.status(500).json({ error: "Registration failed" });
   }
-
-  
-
-
 })
 
 router.get("/auth/verify-email", async (req, res) => {
@@ -157,6 +153,8 @@ router.get("/auth/verify-email", async (req, res) => {
 
     await conn.query("UPDATE user SET email_verified = ? WHERE id = ?", [true, decoded.userId]);
     conn.release();
+
+    
 
     console.log("Verification successful")
     res.json("Verifcation successful")

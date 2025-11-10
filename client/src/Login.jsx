@@ -30,7 +30,10 @@ export default function(){
         .then(data => {
             logged.setIsLogged(true);
             localStorage.setItem("modalHidden", "false");
-            redirectLogIn("/profile", { state: { fromLogin: true } });
+            redirectLogIn("/profile", { state: { 
+                fromLogin: true,
+                message:"Logged in succesfully!" 
+            } });
         })
         .catch(err => {
             setErrorMessage(err.error);

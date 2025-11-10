@@ -40,7 +40,8 @@ export default function(){
             localStorage.setItem("modalHidden", "false");
             navigate("/", {
                 state: {
-                    fromLogOut: true
+                    fromLogOut: true,
+                    message:"Logged out succesfully"
                 }
             })
         }).catch(err => {

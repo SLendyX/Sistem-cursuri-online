@@ -1,35 +1,16 @@
 import React from "react";
 import PopUpMessage from "./PopUpMessage";
-import { LoggedContext } from "../context/LoggedContext";
-import { useContext } from "react";
 
-export default function({fromLogin, fromLogOut, children,...props}){
-    const {isLogged} = useContext(LoggedContext)
+export default function({changeFlag, popUpType=0, children,...props}){
+    const pClass = ["success-message", "info-message", "error-message"]
 
     return(
-        fromLogin ? 
         <PopUpMessage 
             divClass="popup-message"
-            pClass="success-message"
-            changeFlag={isLogged}
+            pClass={pClass[popUpType]}
+            changeFlag={changeFlag}
         >
-            You have logged in succesfully!
+            {children}
         </PopUpMessage>
-     : fromLogOut ?
-        <PopUpMessage 
-            divClass="popup-message"
-            pClass="info-message"
-            changeFlag={isLogged}
-        >
-            You have logged out succesfully!
-        </PopUpMessage>
-        :
-         <PopUpMessage
-            divClass="popup-message"
-            pClass="info-message"
-         >
-         {children}
-         </PopUpMessage>
-        
     )
 }
