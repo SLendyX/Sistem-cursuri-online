@@ -93,11 +93,11 @@ footer, nav, .navbar a{
   }
   nav .nav-links{
     gap: .5rem;
-    font-size: .6rem;
+    font-size: .7rem;
   }
 
   nav .nav-logo{
-    font-size: .8rem;
+    font-size: .9rem;
   }
   .burger-menu{
     width: 20px;
@@ -272,7 +272,7 @@ form input:focus, form select:focus{
   align-items: center;
   justify-content: space-between;
   background-color: var(--dashboard-background);
-  padding: 0.5rem 1rem;
+  padding: 0.8rem 1rem;
 }
 
 /* Logo */

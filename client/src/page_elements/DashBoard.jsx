@@ -32,7 +32,9 @@ export default function(){
                 <LogingMessages
                     fromLogin={location.state?.fromLogin}
                     fromLogOut={location.state?.fromLogOut}
-                />
+                >
+                    {location.state?.message}
+                </LogingMessages>
                 <main className="main">
                     <Outlet />
                 </main>

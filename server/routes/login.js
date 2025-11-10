@@ -18,7 +18,7 @@ async function findUserByUsername(username) {
   try {
     const conn = await pool.getConnection();
     const rows = await conn.query(
-      "SELECT id, username, password FROM user WHERE username = ? OR email = ?",
+      "SELECT id, username, password, email_verified FROM user WHERE username = ? OR email = ?",
       [username, username]
     );
     conn.release();
@@ -57,6 +57,10 @@ router.post("/login", async (req, res) => {
     { expiresIn: "7d" }
   );
 
+  if (!user.email_verified)
+    return res.status(403).json({ error: "Please verify your email first." });
+
+
   res.cookie("auth_token", token, COOKIE_OPTIONS);
   res.json({ message: "Logged in" });
 });
@@ -74,7 +78,7 @@ router.get("/profile", async (req, res) => {
       const conn = await pool.getConnection();
 
       [rows] = await conn.query(
-        `Select username, email, name, type from user where id = ?`,
+        `Select username, email, name, type, email_verified from user where id = ?`,
         [decoded.userId]
       );
       conn.release();
@@ -117,22 +121,50 @@ router.post("/register", async (req, res) => {
       [username]
     );
 
+    const token = jwt.sign(
+      { userId: userId.id },
+      process.env.EMAIL_TOKEN_SECRET,
+      { expiresIn: "15m" }
+    );
+
     conn.release();
 
+    const verificationLink = `http://localhost:5000/api/auth/verify-email?token=${token}`;
+
+    console.log("=== EMAIL VERIFICATION LINK ===");
+    console.log(verificationLink);
+    console.log("================================");
+
+    res.json({ message: "User registered. Check server logs for the verification link." });
   }catch(err){
     console.error("Login error:", err);
-    throw err;
+    res.status(500).json({ error: "Registration failed" });
   }
 
-  const token = jwt.sign(
-    { userId:userId.id },
-    process.env.JWT_SECRET,
-    { expiresIn: "7d" }
-  );
+  
 
-  res.cookie("auth_token", token, COOKIE_OPTIONS);
-  res.json({ message: "Account succesfully created" });
 
+})
+
+router.get("/auth/verify-email", async (req, res) => {
+  const { token } = req.query;
+  try {
+    const decoded = jwt.verify(token, process.env.EMAIL_TOKEN_SECRET);
+    const conn = await pool.getConnection();
+
+    // console.log(`userID: ${JSON.stringify(decoded.userId)}\ndecoded: ${JSON.stringify(decoded)}`)
+
+
+    await conn.query("UPDATE user SET email_verified = ? WHERE id = ?", [true, decoded.userId]);
+    conn.release();
+
+    console.log("Verification successful")
+    res.json("Verifcation successful")
+  } catch (err) {
+    console.error(err);
+    console.error("Verification failed")
+    res.status(500).json({ error: "Verification failed" });
+  }
 })
 
 

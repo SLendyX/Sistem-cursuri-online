@@ -65,9 +65,9 @@ export default function(){
     return (
         <div>
             <h1>Profile</h1>
-            <ul>
-                {profileDetailsElements}
-            </ul>
+            <form>
+                
+            </form>
             <button 
             style={{display: logged.isLogged ? "block" : "none"}}
             onClick={logOut}>Log out</button>

@@ -8,12 +8,11 @@ export default function(){
     const [password, setPassword] = React.useState("")
     const [retypePassword, setRetypePassword] = React.useState("")
     const [name, setName] = React.useState("")
-    const [type, setType] = React.useState("professor")
+    const [type, setType] = React.useState("student")
 
     const [errorMessage, setErrorMessage] = React.useState("")
 
     const redirectRegister = useNavigate()
-    const logged = React.useContext(LoggedContext)
 
     const stateArray = {
         constants:[username, email, password, retypePassword, name],
@@ -64,11 +63,11 @@ export default function(){
                 return data;
             })
             .then(data => {
-                logged.setIsLogged(true)
                 localStorage.setItem("modalHidden", "false");
-                redirectRegister("/profile", {
-                    state: {
-                        fromLogin: true
+                redirectRegister("/login",{
+                    state:{
+                        fromRegister:true,
+                        message:"Verification link sent! Check your email"
                     }
                 })
             })
@@ -86,8 +85,8 @@ export default function(){
             <form onSubmit={sendRegister} className="register-form">
                 {inputElementArray}
                 <select value={type} onChange={e => setType(e.target.value)}>
-                    <option>professor</option>
                     <option>student</option>
+                    <option>professor</option>
                 </select>
                 <p className="login-text">Already have an account?</p>
                 <NavLink className={"redirect-link"} to={"/login"}>Login here</NavLink>

@@ -3,7 +3,7 @@ import PopUpMessage from "./PopUpMessage";
 import { LoggedContext } from "../context/LoggedContext";
 import { useContext } from "react";
 
-export default function({fromLogin, fromLogOut, ...props}){
+export default function({fromLogin, fromLogOut, children,...props}){
     const {isLogged} = useContext(LoggedContext)
 
     return(
@@ -24,7 +24,12 @@ export default function({fromLogin, fromLogOut, ...props}){
             You have logged out succesfully!
         </PopUpMessage>
         :
-         <></>
+         <PopUpMessage
+            divClass="popup-message"
+            pClass="info-message"
+         >
+         {children}
+         </PopUpMessage>
         
     )
 }
