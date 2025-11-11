@@ -138,7 +138,19 @@ router.post("/register", async (req, res) => {
     res.json({ message: "User registered. Check server logs for the verification link." });
   }catch(err){
     console.error("Login error:", err);
-    res.status(500).json({ error: "Registration failed" });
+
+    let errMsg
+
+    switch(err.code){
+      case "ER_DUP_ENTRY":
+        errMsg = "Username or email already exists please pick another"
+        break;
+      default:
+        errMsg:""
+        break;
+    }
+
+    res.status(500).json({ error: errMsg });
   }
 })
 
@@ -159,8 +171,9 @@ router.get("/auth/verify-email", async (req, res) => {
     console.log("Verification successful")
     res.json("Verifcation successful")
   } catch (err) {
-    console.error(err);
-    console.error("Verification failed")
+    // console.error(err);
+    // console.error("Verification failed")
+
     res.status(500).json({ error: "Verification failed" });
   }
 })

@@ -9,7 +9,8 @@ import LogingMessages from "./LogingMessages";
 
 export default function(){
     const [isLogged, setIsLogged] = React.useState(false);
-    
+    const [hasRegistered, setHasRegistered] = React.useState(false)
+
     const location = useLocation();
 
 
@@ -29,11 +30,12 @@ export default function(){
     return(
         <div className="site-page-container">
            
-            <LoggedContext value={{isLogged, setIsLogged}}>
+           
+            <LoggedContext value={{isLogged, setIsLogged, hasRegistered, setHasRegistered}}>
                 <Nav/> 
                 <LogingMessages
-                    changeFlag={(location.state?.fromLogin || location.state?.fromLogOut) ? isLogged : }
-                    popUpType={location.state?.fromLogin? 0 : location.state?.fromLogOut ? 1 :  1}
+                    changeFlag={(location.state?.fromLogin || location.state?.fromLogOut) ? isLogged : location.state?.fromRegister ? hasRegistered : null}
+                    popUpType={location.state?.fromLogin? 0 : location.state?.fromLogOut ? 1 :  location.state?.fromRegister ? 1 : 2}
                 >
                     {location.state?.message}
                 </LogingMessages>

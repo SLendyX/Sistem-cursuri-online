@@ -1,5 +1,6 @@
 import React from "react";
 import { NavLink, useNavigate } from "react-router"
+import { LoggedContext } from "./context/LoggedContext";
 
 export default function(){
     const [username, setUsername] = React.useState("")
@@ -11,6 +12,7 @@ export default function(){
 
     const [errorMessage, setErrorMessage] = React.useState("")
 
+    const logged = React.useContext(LoggedContext)
     const redirectRegister = useNavigate()
 
     const stateArray = {
@@ -34,6 +36,11 @@ export default function(){
             />
         )
     })
+
+    function resetFormState(){
+        stateArray.functions.forEach(func => func(""))
+    }
+
 
     function sendRegister(e){
         if(password != retypePassword){
@@ -63,6 +70,8 @@ export default function(){
             })
             .then(data => {
                 localStorage.setItem("modalHidden", "false");
+                logged.setHasRegistered(true)
+                setTimeout(() => logged.setHasRegistered(false), 10000)
                 redirectRegister("/login",{
                     state:{
                         fromRegister:true,
@@ -74,9 +83,8 @@ export default function(){
                 setErrorMessage(err)
             })
 
-        return
+        resetFormState()
     }
-
 
     return (
         <>
@@ -91,7 +99,7 @@ export default function(){
                 <NavLink className={"redirect-link"} to={"/login"}>Login here</NavLink>
 
                 <button>Register</button>
-                {errorMessage !== "" && <p className="error-message">{errorMessage}</p>}
+                {errorMessage !== "" && <p className="error-message">{errorMessage.error}</p>}
                 <label style={{display: password != retypePassword ? "block" : "none", color:"red"}}>Passwords are not same</label>
             </form>
         </>
