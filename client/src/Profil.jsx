@@ -4,7 +4,7 @@ import { useNavigate } from "react-router";
 
 export default function(){
     const [profileDetails, setProfileDetails] = React.useState({})
-    const profileDetailsElements = []
+    let profileDetailsElements = {}
 
     const navigate = useNavigate();
 
@@ -25,7 +25,7 @@ export default function(){
             setProfileDetails(data)
         }
     )
-        .catch(err => setProfileDetails(err.error))
+        .catch(err => setProfileDetails(err))
     }, []);
 
     function logOut(){
@@ -49,29 +49,66 @@ export default function(){
         })
     }
 
-    for(const key in profileDetails){
-        profileDetailsElements.push(
-            <ul key={key}>
-                <h4>
-                    {key}:
-                </h4>
-                <ul>
-                    {profileDetails[key]}
-                </ul>
-            </ul>
-        )
+    profileDetailsElements.labels = Object.keys(profileDetails).map(key => 
+    {
+        if(key!=="userId" && key !== "isLogged"){
+            return(
+                    <label htmlFor={`profile-${key}`} className="field-label" key={`label-${key}`}>{key}:</label>
+            )
+        }
     }
+    )
+
+    profileDetailsElements.inputs = Object.keys(profileDetails).map(key => 
+    {
+        if(key === "email_verified"){
+            return(
+                    <input id={`profile-${key}`}  key={`input-${key}`} type="checkbox" checked={profileDetails[key]} readOnly />
+            )
+        }
+
+        if(key!=="userId" && key !== "isLogged"){
+            return(
+                    <input id={`profile-${key}`} key={`input-${key}`} type="text" value={profileDetails[key]} readOnly />
+            )
+        }
+    })
+
+
 
 
     return (
-        <div>
+        <div className="profile-container">
             <h1>Profile</h1>
-            <form>
-                
-            </form>
-            <button 
-            style={{display: logged.isLogged ? "block" : "none"}}
-            onClick={logOut}>Log out</button>
+
+            {/* Error or logout message */}
+            {profileDetails.error && (
+                <p style={{ color: "red" }}>{profileDetails.error}</p>
+            )}
+
+            {/* Loading state */}
+            {Object.keys(profileDetails).length === 0 && !profileDetails.err && (
+                <p>Loading...</p>
+            )}
+
+            {/* Profile form */}
+            {profileDetails.username && (
+                <form className="profile-form">
+                    <div className="profile-labels">
+                        {profileDetailsElements.labels}
+                    </div>
+                    <div className="profile-fields">
+                        {profileDetailsElements.inputs}
+                    </div>
+                </form>
+            )}
+
+            {/* Log out button */}
+            {logged.isLogged && (
+                <button onClick={logOut} className="logout-btn">
+                    Log out
+                </button>
+            )}
         </div>
     )
 }
