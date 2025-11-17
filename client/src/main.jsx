@@ -10,6 +10,7 @@ import Courses from "./Cursuri.jsx"
 import Course from "./Curs.jsx"
 import About from './About.jsx';
 import Register from './Register.jsx';
+import CreateCourse from './CreateCourse.jsx';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -21,6 +22,7 @@ createRoot(document.getElementById('root')).render(
         <Route path='register' element={<Register />} />
         <Route path='profile' element={<Profile />}/>
         <Route path='about' element={<About />} />
+        <Route path="create_course" element={<CreateCourse/>}/>
         <Route path='courses' element={<Courses />}>
           <Route path=":courseId" element={<Course />} />
         </Route>

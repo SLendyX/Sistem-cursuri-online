@@ -94,10 +94,10 @@ export default function(){
             {/* Profile form */}
             {profileDetails.username && (
                 <form className="profile-form">
-                    <div className="profile-labels">
+                    <div className="field-labels">
                         {profileDetailsElements.labels}
                     </div>
-                    <div className="profile-fields">
+                    <div className="field-inputs">
                         {profileDetailsElements.inputs}
                     </div>
                 </form>
