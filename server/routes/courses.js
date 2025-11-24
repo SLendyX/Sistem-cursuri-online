@@ -2,21 +2,38 @@ import express from "express";
 import pool from "../db/pool.js";
 import cookieParser from "cookie-parser";
 import jwt from "jsonwebtoken";
+import multer from "multer";
+import path from "path";
 
 const router = express.Router();
 router.use(express.json());
 router.use(cookieParser());
 
-// Funcție helper pentru a verifica token-ul
+// --- Configurare Multer (Stocare Locală) ---
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, 'public/images/'); // Imaginile se salvează aici
+    },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, uniqueSuffix + path.extname(file.originalname));
+    }
+});
+
+const fileFilter = (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) cb(null, true);
+    else cb(new Error('Only images are allowed'), false);
+};
+
+const upload = multer({ storage: storage, fileFilter: fileFilter });
+// -------------------------------------------
+
 const verifyToken = (req) => {
     const token = req.cookies.auth_token;
     if (!token) return null;
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        return decoded.userId;
-    } catch (err) {
-        return null;
-    }
+        return jwt.verify(token, process.env.JWT_SECRET).userId;
+    } catch (err) { return null; }
 };
 
 router.get("/courses", async(req, res)=>{
@@ -24,64 +41,41 @@ router.get("/courses", async(req, res)=>{
         const conn = await pool.getConnection();
         const rows = await conn.query("SELECT * FROM curs");
         conn.release();
-        // Trimitem doar numele coloanelor pentru formularul din frontend (daca asta era intentia originala)
-        // Sau putem trimite datele cursurilor. Aici pastrez compatibilitatea cu ce aveai, 
-        // dar ideal ar fi sa returnezi cursurile pentru pagina de Listing.
-        res.json(rows); 
+        res.json(rows);
     }catch(err){
         res.status(500).json({error: err.message});
     }
 })
 
-// RUTA NOUĂ: Adăugare curs
-router.post("/courses", async (req, res) => {
+// Ruta POST modificată pentru upload
+router.post("/courses", upload.single('image'), async (req, res) => {
     const userId = verifyToken(req);
-    
-    if (!userId) {
-        return res.status(401).json({ error: "Trebuie să fii autentificat pentru a crea un curs." });
-    }
+    if (!userId) return res.status(401).json({ error: "Not authenticated" });
 
-    const { numeCurs, descriere, dificultate, pret, thumbnailUrl } = req.body;
-
-    // Validare simplă
-    if (!numeCurs || !descriere || !dificultate || !pret) {
-        return res.status(400).json({ error: "Toate câmpurile sunt obligatorii." });
-    }
+    const { numeCurs, descriere, dificultate, pret } = req.body;
 
     try {
         const conn = await pool.getConnection();
-        
-        // Verificăm dacă userul e profesor (opțional, dar recomandat)
         const [user] = await conn.query("SELECT type FROM user WHERE id = ?", [userId]);
+        
         if (user?.type !== 'professor') {
             conn.release();
-            return res.status(403).json({ error: "Doar profesorii pot crea cursuri." });
+            return res.status(403).json({ error: "Only professors can create courses" });
         }
 
-        const query = `
-            INSERT INTO curs 
-            (autor_id, nume_curs, descriere, dificultate, pret, thumbnail_url, rating, studenti_inrolati, nr_proiecte) 
-            VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0)
-        `;
+        // Calea către imagine (sau default)
+        const finalImage = req.file ? `/images/${req.file.filename}` : '/images/default.jpg';
 
-        // Folosim o imagine default dacă nu se oferă una
-        const finalImage = thumbnailUrl || '/images/default.jpg';
-
-        await conn.query(query, [
-            userId, 
-            numeCurs, 
-            descriere, 
-            dificultate, 
-            parseFloat(pret), 
-            finalImage
-        ]);
+        await conn.query(
+            `INSERT INTO curs (autor_id, nume_curs, descriere, dificultate, pret, thumbnail_url, rating) 
+             VALUES (?, ?, ?, ?, ?, ?, 0)`,
+            [userId, numeCurs, descriere, dificultate || 'usor', parseFloat(pret), finalImage]
+        );
 
         conn.release();
-        res.status(201).json({ message: "Curs creat cu succes!" });
-
+        res.json({ message: "Course created!" });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Eroare la salvarea cursului." });
+        res.status(500).json({ error: err.message });
     }
 });
 

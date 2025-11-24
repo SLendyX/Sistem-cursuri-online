@@ -430,3 +430,39 @@ input#image{
   width: 100%;;
 }
 
+/* drag-over */
+/* Drop Zone Styling */
+.drop-zone {
+  width: 250px; /* Aceeași lățime cu input-urile tale */
+  height: 40px; /* Înălțime similară cu un input */
+  border: 1px dashed var(--border-color);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background-color: rgba(255, 255, 255, 0.5);
+  font-size: 0.8rem;
+  color: var(--text-color-light);
+  overflow: hidden;
+}
+
+.drop-zone.dragging {
+  border-color: var(--button-background);
+  background-color: rgba(40, 175, 176, 0.1);
+}
+
+.image-preview-mini {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 0 10px;
+}
+
+.image-preview-mini img {
+  height: 30px;
+  width: 30px;
+  object-fit: cover;
+  border-radius: 4px;
+}

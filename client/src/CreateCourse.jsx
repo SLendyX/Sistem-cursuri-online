@@ -5,58 +5,76 @@ import PopUpMessage from "./page_elements/PopUpMessage";
 export default function(){
     const [numeCurs, setNumeCurs] = React.useState("")
     const [desc, setDesc] = React.useState("")
-    const [dificultate, setDificultate] = React.useState("usor") // Default valid
-    const [thumbnailUrl, setThumbnailUrl] = React.useState("")
+    const [dificultate, setDificultate] = React.useState("usor")
     const [pret, setPret] = React.useState("")
     
-    // State pentru eroare
+    // State-uri noi pentru imagine și erori
+    const [imageFile, setImageFile] = React.useState(null)
+    const [previewUrl, setPreviewUrl] = React.useState(null)
+    const [isDragging, setIsDragging] = React.useState(false)
     const [errorMessage, setErrorMessage] = React.useState("")
 
-    const navigate = useNavigate();
+    const navigate = useNavigate()
 
+    // Păstrăm structura ta de state pentru input-urile text
     const state = {
-        variables: [numeCurs, desc, dificultate, thumbnailUrl, pret],
-        setFunc: [setNumeCurs, setDesc, setDificultate, setThumbnailUrl, setPret]
+        variables: [numeCurs, desc, dificultate, null, pret], // null pentru imagine, o tratăm separat
+        setFunc: [setNumeCurs, setDesc, setDificultate, null, setPret]
     }
     
-    // Mapare corectă a numelor pentru afișare vs. state
-    const fieldsArray = ["nume curs", "descriere", "dificultate", "image", "pret"]
+    const fieldsArray = ["nume curs", "descriere", "dificultate", "thumbnail image", "pret"]
+
+    // --- Logică Drag & Drop ---
+    const handleDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
+    const handleDragLeave = (e) => { e.preventDefault(); setIsDragging(false); };
+    const handleDrop = (e) => {
+        e.preventDefault();
+        setIsDragging(false);
+        const file = e.dataTransfer.files[0];
+        validateAndSetImage(file);
+    };
+    const handleFileSelect = (e) => {
+        validateAndSetImage(e.target.files[0]);
+    };
+    const validateAndSetImage = (file) => {
+        if (file && file.type.startsWith('image/')) {
+            setImageFile(file);
+            setPreviewUrl(URL.createObjectURL(file));
+            setErrorMessage("");
+        } else {
+            setErrorMessage("Te rog încarcă un fișier imagine valid.");
+            localStorage.setItem("modalHidden", "false");
+        }
+    };
+    // ---------------------------
 
     function handleSubmit(e) {
         e.preventDefault();
-        setErrorMessage(""); // Resetăm eroarea înainte de request
+        setErrorMessage("");
 
-        const courseData = {
-            numeCurs,
-            descriere: desc,
-            dificultate,
-            thumbnailUrl,
-            pret
-        };
+        const formData = new FormData();
+        formData.append("numeCurs", numeCurs);
+        formData.append("descriere", desc);
+        formData.append("dificultate", dificultate);
+        formData.append("pret", pret);
+        if (imageFile) formData.append("image", imageFile);
 
         fetch("/api/courses", {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(courseData)
+            body: formData 
         })
         .then(async res => {
             const data = await res.json();
-            if (!res.ok) {
-                throw new Error(data.error || "Something went wrong");
-            }
+            if (!res.ok) throw new Error(data.error || "Something went wrong");
             return data;
         })
         .then(() => {
-            // Succes - redirecționăm utilizatorul
             alert("Curs creat cu succes!");
-            navigate("/courses"); 
+            navigate("/courses");
         })
         .catch(err => {
-            // Setăm 'modalHidden' pe false pentru a ne asigura că popup-ul apare din nou
-            localStorage.setItem("modalHidden", "false");
             setErrorMessage(err.message);
+            localStorage.setItem("modalHidden", "false");
         });
     }
 
@@ -64,19 +82,21 @@ export default function(){
         labels: <div className="field-labels">
             {fieldsArray.map(field => (
                 <label className="field-label" key={`label-${field}`} htmlFor={field.replace(" ", "-")}>
-                    {field}:
+                    {field}
                 </label>
             ))}
-        </div>, 
+        </div>,
+        
         inputs: <div className="field-inputs">
             {fieldsArray.map((field, index) => {
                 const inputId = field.replace(" ", "-");
-                
+
+                // Cazul 1: Select pentru dificultate
                 if(field === "dificultate"){
                     return (
                         <select 
+                            key={index}
                             id={inputId} 
-                            key={inputId}
                             value={state.variables[index]} 
                             onChange={e => state.setFunc[index](e.target.value)}
                         >
@@ -87,16 +107,44 @@ export default function(){
                     )
                 }
 
+                // Cazul 2: Zona de Drop pentru imagine
+                if(field === "thumbnail image"){
+                    return (
+                        <div 
+                            key={index}
+                            className={`drop-zone ${isDragging ? 'dragging' : ''}`}
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onDrop={handleDrop}
+                            onClick={() => document.getElementById('hidden-file-input').click()}
+                        >
+                            <input 
+                                id="hidden-file-input"
+                                type="file" 
+                                accept="image/*"
+                                onChange={handleFileSelect}
+                                style={{display: 'none'}} 
+                            />
+                            {previewUrl ? (
+                                <div className="image-preview-mini">
+                                    <img src={previewUrl} alt="Preview" />
+                                    <span>Change</span>
+                                </div>
+                            ) : (
+                                <span className="drop-text">Click or Drop Image</span>
+                            )}
+                        </div>
+                    )
+                }
 
-
+                // Cazul 3: Input text normal (pentru nume, descriere, pret)
                 return (
                     <input 
+                        key={index}
                         id={inputId} 
-                        key={inputId}
-                        type={field === "pret" ? "number" : field === "image" ? "file" : "text"} 
+                        type={field === "pret" ? "number" : "text"} 
                         value={state.variables[index]} 
                         onChange={e => state.setFunc[index](e.target.value)}
-                        required={field !== "thumbnail image"} // Imaginea e opțională în backend
                     />
                 )
             })}
@@ -105,7 +153,6 @@ export default function(){
 
     return(
         <>
-            {/* Afișare eroare folosind componenta PopUpMessage */}
             {errorMessage && (
                 <PopUpMessage 
                     divClass="popup-message"
@@ -117,15 +164,13 @@ export default function(){
             )}
 
             <h1>Create a new course</h1>
-            <form className="course-form" onSubmit={handleSubmit}>
-                <div className="course-inputs">
-                    {fieldElements.labels}
-                    {fieldElements.inputs}
-                </div>
-                
-                {/* Butonul trebuie să fie în form pentru a declanșa onSubmit */}
-                <button className="create-course-btn">Create new Course</button>
+            <form className="profile-form" onSubmit={handleSubmit}>
+                {fieldElements.labels}
+                {fieldElements.inputs}
+                <button className="create-course-btn" style={{display:'none'}}>Submit Hidden</button> 
             </form>
+            {/* Butonul de submit scos în afară sau stilizat separat, cum era în layout-ul tău */}
+            <button onClick={handleSubmit} className="create-course-btn">Create new Course</button>
         </>
     )
 }
