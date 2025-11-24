@@ -299,12 +299,13 @@ form input:focus, form select:focus{
   100% { opacity: 1; transform: translateY(0); }
 }
 
-.success-message, .info-message{
+.success-message, .info-message, .error-message{
   color: white;
   border-radius: 8px;
   padding: .6em .95em;
   font-size: 1rem;
   box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  margin:0;
 }
 
 .success-message{
@@ -315,6 +316,11 @@ form input:focus, form select:focus{
   background-color: #2196f3;
 }
 
+.error-message{
+  background-color: red;
+  color:white;
+}
+
 .btn-container{
   position:relative;
 }
@@ -322,7 +328,7 @@ form input:focus, form select:focus{
 .btn-container .close-modal{
   position: absolute;
   top:0px;
-  right: 0;
+  right: 0px;
   font-size: 1rem;
   padding: 0 0 .2em 0;
   width: 1rem;
@@ -330,6 +336,7 @@ form input:focus, form select:focus{
   background-color: transparent;
   border-radius: 50%;
   border: none;
+  margin:0;
 }
 
 /*------ footer --------*/
@@ -392,15 +399,16 @@ footer{
   flex-direction: row;
 }
 
-.field-label{
-  text-transform: capitalize;
-}
-
 .field-inputs, .field-labels{
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   gap:.5em;
+  align-items: start;
+}
+
+.field-labels{
+  text-transform: capitalize;
   align-items: start;
 }
 
@@ -412,3 +420,13 @@ footer{
   display: block;
   margin:1em auto 0;
 }
+
+.course-inputs{
+  display: flex;
+  gap: .5em;
+}
+
+input#image{
+  width: 100%;;
+}
+
