@@ -51,8 +51,7 @@ body{
   
   /* #1e40af */
 }
-/* 
-#474A48
+/* #474A48
 #2C302E
 #0F0326
 */
@@ -236,6 +235,7 @@ form input:focus, form select:focus{
   display: flex;
   gap: 1rem;
   text-transform: capitalize;
+  align-items: center;
 }
 
 /* Individual links */
@@ -282,6 +282,74 @@ form input:focus, form select:focus{
   font-size: 1.5rem;
   text-decoration: none;
 }
+
+/* --- Nav User Dropdown --- */
+.nav-user-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  height: 100%;
+  margin-left: 1rem;
+}
+
+.nav-user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--button-background);
+  transition: border-color 0.3s;
+}
+
+.nav-user-container:hover .nav-user-avatar {
+  border-color: var(--button-hover);
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background-color: var(--background-body);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px var(--card-shadow);
+  width: 180px;
+  display: none;
+  flex-direction: column;
+  padding: 0.5rem 0;
+  z-index: 1000;
+}
+
+.nav-user-container:hover .dropdown-menu {
+  display: flex;
+}
+
+.dropdown-item {
+  padding: 0.8rem 1rem;
+  text-decoration: none;
+  color: var(--text-color-dark);
+  font-weight: 500;
+  text-align: left;
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 1rem;
+  width: 100%;
+  cursor: pointer;
+}
+
+.dropdown-item:hover {
+  background-color: var(--dashboard-background);
+  color: var(--link-hover);
+}
+
+.logout-link {
+  border-top: 1px solid var(--border-color);
+  color: var(--underline-text);
+}
+
+/* -------------------------- */
 
 .popup-message{
   position: fixed;

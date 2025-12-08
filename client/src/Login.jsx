@@ -40,6 +40,15 @@ export default function(){
         });
     }
 
+    React.useEffect(() => {
+        const timer = setTimeout(() => {
+            setErrorMessage("")
+        }, 1500);
+
+        // Cleanup timeout if component unmounts or dependency changes
+        return () => clearTimeout(timer); 
+    }, [errorMessage]);
+
 
     return(
         <>

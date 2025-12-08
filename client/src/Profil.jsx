@@ -25,7 +25,9 @@ export default function(){
             setProfileDetails(data)
         }
     )
-        .catch(err => setProfileDetails(err))
+        .catch(err => {
+            setProfileDetails(err)
+        })
     }, []);
 
     function logOut(){
@@ -74,16 +76,15 @@ export default function(){
         }
     })
 
-
-
-
     return (
         <div className="profile-container">
             <h1>Profile</h1>
 
             {/* Error or logout message */}
             {profileDetails.error && (
-                <p style={{ color: "red" }}>{profileDetails.error}</p>
+                <p 
+                    style={{ color: "red" }}
+                >{profileDetails.error}</p>
             )}
 
             {/* Loading state */}
