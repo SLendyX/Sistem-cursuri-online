@@ -18,7 +18,7 @@ export default function(){
 
     // Păstrăm structura ta de state pentru input-urile text
     const state = {
-        variables: [numeCurs, desc, dificultate, null, pret], // null pentru imagine, o tratăm separat
+        variables: [numeCurs, desc, dificultate, null, pret], 
         setFunc: [setNumeCurs, setDesc, setDificultate, null, setPret]
     }
     

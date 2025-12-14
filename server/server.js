@@ -5,6 +5,7 @@ import usersRouter from "./routes/users.js";
 import loginRouter from "./routes/login.js";
 import coursesRouter from "./routes/courses.js"
 import path from "path";
+import { fileURLToPath } from 'url';
 console.log("Static path:", path.resolve("public"));
 
 dotenv.config();
@@ -13,10 +14,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+app.use(express.static('public'));
 
 app.use("/api/users", usersRouter);
 app.use("/api", loginRouter);
-app.use("/api", express.static('public/'));
 app.use("/api", coursesRouter)
 
 

@@ -4,15 +4,32 @@ import cookieParser from "cookie-parser";
 import jwt from "jsonwebtoken";
 import multer from "multer";
 import path from "path";
+import fs from "fs";
+import { fileURLToPath } from 'url';
+
+// Define __dirname for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 router.use(express.json());
 router.use(cookieParser());
 
 // --- Configurare Multer (Stocare Locală) ---
+
+// 1. Construct the absolute path to 'server/public/images'
+// This ensures it works even if you start the node process from the project root
+const uploadDir = path.join(__dirname, '../public/images');
+
+// 2. Ensure the directory exists before Multer tries to save there
+if (!fs.existsSync(uploadDir)){
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        cb(null, 'public/images/'); // Imaginile se salvează aici
+        // Use the absolute path confirmed to exist
+        cb(null, uploadDir); 
     },
     filename: function (req, file, cb) {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
