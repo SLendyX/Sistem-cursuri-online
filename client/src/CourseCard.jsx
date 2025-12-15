@@ -12,7 +12,7 @@ export default function({curs, ...props}){
     const dificulty_color = dificultate === "usor" ? "success" : dificultate === "mediu" ? "warning" : "error"
 
     return (
-        <Card sx={{ maxWidth: 340, borderRadius: 2, boxShadow: 3 }}>
+    <Card sx={{ maxWidth: 340, borderRadius: 2, boxShadow: 3 }}>
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center' }}>

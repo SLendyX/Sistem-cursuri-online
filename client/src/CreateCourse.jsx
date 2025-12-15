@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router";
-import PopUpMessage from "./page_elements/PopUpMessage";
+// import PopUpMessage from "./page_elements/PopUpMessage";
 
 export default function(){
     const [numeCurs, setNumeCurs] = React.useState("")

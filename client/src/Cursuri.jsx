@@ -11,10 +11,12 @@ export default function(){
         .then(res => res.json())
         .then(data => {
             setCourses(data)
+        }).catch(err => {
+            
         })
     }, [])
 
-    const courseElements = courses.map((curs, index) => (
+    const courseElements = (courses === null) ? [] : courses.map((curs, index) => (
         <CourseCard 
             curs={curs}
             key={index}

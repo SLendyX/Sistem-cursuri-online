@@ -3,13 +3,12 @@ import { Outlet, useNavigate } from "react-router";
 import Footer from "./Footer"
 import Nav from "./Nav"
 import BackTopButton from "./BackTopButton";
-import { LoggedContext } from "../context/LoggedContext";
+import { LoggedInContext} from "./LoggedInContext";
 import { useLocation } from "react-router";
-import LogingMessages from "./LogingMessages";
 
 export default function(){
     const [isLogged, setIsLogged] = React.useState(false);
-    const [hasRegistered, setHasRegistered] = React.useState(false)
+    // const [hasRegistered, setHasRegistered] = React.useState(false)
     const [userData, setUserData] = React.useState(null)
 
     const location = useLocation();
@@ -29,7 +28,7 @@ export default function(){
                 setIsLogged(false)
                 setUserData(null)
             })
-    }, [isLogged]); // Re-fetch if login state changes
+    }, [isLogged]);
 
     function logOut(){
         fetch("/api/logout", {
@@ -53,22 +52,28 @@ export default function(){
     }
 
     return(
-        <div className="site-page-container">
-           
-            <LoggedContext value={{isLogged, setIsLogged, hasRegistered, setHasRegistered, userData, setUserData, logOut}}>
-                <Nav/> 
-                <LogingMessages
-                    changeFlag={(location.state?.fromLogin || location.state?.fromLogOut) ? isLogged : location.state?.fromRegister ? hasRegistered : null}
-                    popUpType={location.state?.fromLogin? 0 : location.state?.fromLogOut ? 1 :  location.state?.fromRegister ? 1 : 2}
-                >
-                    {location.state?.message}
-                </LogingMessages>
-                <main className="main">
-                    <Outlet />
-                </main>
-                <Footer />
-                <BackTopButton />
-            </LoggedContext>
+        <div>
+            <Nav></Nav>
+            <Outlet />
         </div>
+
+
+        // <div className="site-page-container">
+           
+        //     <LoggedContext value={{isLogged, setIsLogged, hasRegistered, setHasRegistered, userData, setUserData, logOut}}>
+        //         <Nav/> 
+        //         <LogingMessages
+        //             changeFlag={(location.state?.fromLogin || location.state?.fromLogOut) ? isLogged : location.state?.fromRegister ? hasRegistered : null}
+        //             popUpType={location.state?.fromLogin? 0 : location.state?.fromLogOut ? 1 :  location.state?.fromRegister ? 1 : 2}
+        //         >
+        //             {location.state?.message}
+        //         </LogingMessages>
+        //         <main className="main">
+        //             <Outlet />
+        //         </main>
+        //         <Footer />
+        //         <BackTopButton />
+        //     </LoggedContext>
+        // </div>
     )
 }
