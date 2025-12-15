@@ -14,7 +14,7 @@ body{
   margin: 0;
   padding: 0;
   font-family: "Roboto Slab", serif;
-  background-color: var(--background-body);
+  background-color: var(--dashboard-background) !important;
   
   /* Backgrounds */
   --dashboard-background: #F4F1EE;  /* light neutral beige */
@@ -120,25 +120,9 @@ h1{
 }
 
 /*------ form --------*/
-form{
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: .7em;
-  padding: 1em;
-  width: max-content;
-  margin: 2rem auto 0;
-}
-
 .login-form, .register-form{
   background-color: var(--form-background);
   padding: 2em;
-  box-shadow: 1px 1px 5px rgb(138, 136, 136);
-  border-radius: 5px;
-}
-
-form button{
-  width: 100%;
 }
 
 button{
@@ -153,8 +137,6 @@ button{
   font-weight:700;
   cursor: pointer;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
-
-
 }
 
 button:hover{
@@ -167,25 +149,12 @@ button:active{
   box-shadow: inset 1px 1px 10px black;
 }
 
-form input{
-  width: 250px;
-}
-
-form input, form select{
-  background: none;
-  padding: .3em .5em;
-  font-size: 1rem;
-  border-radius: 10px;
-  border: 1px solid var(--border-color);
-}
-
 form input::placeholder{
   color: var(--text-color-light);
 }
 
 form input:focus, form select:focus{
   outline: none;
-  border: 2px solid var(--input-focus-border);
 }
 
 .register-text, .login-text{
@@ -211,23 +180,7 @@ form input:focus, form select:focus{
 /*------ navigation --------*/
 
 .back-to-top-button {
-  position: fixed;
-  bottom: 100px;
-  right: 20px;
-  background-color: var(--button-background);
-  /* color: white; */
-  border: none;
-  padding: 10px 15px;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 16px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-  transition: background-color 0.3s, box-shadow 0.3s;
-
-}
-
-.back-to-top-button:hover{
-  background-color: var(--button-hover);
+  background-color: var(--button-background) !important ;
 }
 
 /* Links container */
@@ -272,8 +225,11 @@ form input:focus, form select:focus{
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background-color: var(--dashboard-background);
   padding: 0.8rem 1rem;
+}
+
+.navbar-container{
+  background-color: var(--dashboard-background) !important;
 }
 
 /* Logo */
@@ -326,7 +282,6 @@ form input:focus, form select:focus{
 }
 
 .dropdown-item {
-  padding: 0.8rem 1rem;
   text-decoration: none;
   color: var(--text-color-dark);
   font-weight: 500;
@@ -345,8 +300,13 @@ form input:focus, form select:focus{
 }
 
 .logout-link {
-  border-top: 1px solid var(--border-color);
   color: var(--underline-text);
+  padding:0;
+  margin:0;
+}
+
+.logout-link:hover{
+  box-shadow: none;
 }
 
 /* -------------------------- */

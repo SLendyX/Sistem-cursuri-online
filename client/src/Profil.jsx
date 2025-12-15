@@ -1,115 +1,124 @@
-import React, { useContext } from "react";
-import { LoggedContext } from "./context/LoggedContext";
+import React, { useContext, useEffect, useState } from "react";
+import { LoggedInContext } from "./page_elements/LoggedInContext";
 import { useNavigate } from "react-router";
 
-export default function(){
-    const [profileDetails, setProfileDetails] = React.useState({})
-    let profileDetailsElements = {}
+// MUI Imports
+import { 
+  Box, 
+  Container, 
+  Paper, 
+  Typography, 
+  TextField, 
+  Button, 
+  Skeleton, 
+  Stack, 
+  Alert,
+  Checkbox,
+  FormControlLabel
+} from '@mui/material';
 
+export default function Profile() {
     const navigate = useNavigate();
+    const { logOut, isLoading } = useContext(LoggedInContext);
 
-    const logged = useContext(LoggedContext)
+    const [profileDetails, setProfileDetails] = useState(null);
+    const [error, setError] = useState(null);
 
-    React.useEffect(() => {
+    useEffect(() => {
         fetch("/api/profile")
-        .then(async res => {
-            const data = await res.json(); // parse JSON response
-
-            if (!res.ok) {
-                throw { error: data.error || "Something went wrong." };
-            }
-
-            return data;
-        })
-        .then(data => {
-            setProfileDetails(data)
-        }
-    )
-        .catch(err => {
-            setProfileDetails(err)
-        })
+            .then(async res => {
+                const data = await res.json();
+                if (!res.ok) throw { error: data.error || "Something went wrong." };
+                setProfileDetails(data);
+            })
+            .catch(err => {
+                setError(err.error || "Failed to load profile");
+            });
     }, []);
 
-    function logOut(){
-        fetch("/api/logout", {
-                method: 'POST',
-                headers: { "Content-Type": "application/json" }            
-            })
-        .then(res => res.json())
-        .then(data => {
-            logged.setIsLogged(false)
-            setProfileDetails({err: "You have been logged out."})
-            localStorage.setItem("modalHidden", "false");
-            navigate("/", {
-                state: {
-                    fromLogOut: true,
-                    message:"Logged out succesfully"
-                }
-            })
-        }).catch(err => {
-            console.error("Error logging out:", err)
-        })
-    }
+    const renderSkeletons = () => (
+        <Stack spacing={2}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+                <Skeleton variant="circular" width={80} height={80} />
+            </Box>
+            <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 1 }} />
+            <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 1 }} />
+            <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 1 }} />
+        </Stack>
+    );
 
-    profileDetailsElements.labels = Object.keys(profileDetails).map(key => 
-    {
-        if(key!=="userId" && key !== "isLogged"){
-            return(
-                    <label htmlFor={`profile-${key}`} className="field-label" key={`label-${key}`}>{key}:</label>
-            )
-        }
-    }
-    )
+    const renderProfileFields = () => {
+        if (!profileDetails) return null;
 
-    profileDetailsElements.inputs = Object.keys(profileDetails).map(key => 
-    {
-        if(key === "email_verified"){
-            return(
-                    <input id={`profile-${key}`}  key={`input-${key}`} type="checkbox" checked={profileDetails[key]} readOnly />
-            )
-        }
+        return (
+            <Stack spacing={2}>
+                {Object.keys(profileDetails).map((key) => {
+                    if (["userId", "isLogged", "error"].includes(key)) return null;
 
-        if(key!=="userId" && key !== "isLogged"){
-            return(
-                    <input id={`profile-${key}`} key={`input-${key}`} type="text" value={profileDetails[key]} readOnly />
-            )
-        }
-    })
+
+                    if (typeof profileDetails[key] === "boolean" || key === "email_verified") {
+                        return (
+                            <FormControlLabel
+                                key={key}
+                                control={<Checkbox checked={!!profileDetails[key]} disabled />}
+                                label={key.replace('_', ' ')} 
+                                sx={{ textTransform: 'capitalize' }}
+                            />
+                        );
+                    }
+
+                    // Handle Text Fields
+                    return (
+                        <TextField
+                            key={key}
+                            label={key.replace('_', ' ')}
+                            defaultValue={profileDetails[key]}
+                            variant="outlined"
+                            fullWidth
+                            InputProps={{
+                                readOnly: true, 
+                            }}
+                            sx={{ textTransform: 'capitalize' }}
+                        />
+                    );
+                })}
+            </Stack>
+        );
+    };
 
     return (
-        <div className="profile-container">
-            <h1>Profile</h1>
+        <Container maxWidth="sm" sx={{ mt: 4, mb: 4 }}>
+            <Paper elevation={3} sx={{ p: 4 }}>
+                <Typography variant="h4" component="h1" align="center" gutterBottom>
+                    User Profile
+                </Typography>
 
-            {/* Error or logout message */}
-            {profileDetails.error && (
-                <p 
-                    style={{ color: "red" }}
-                >{profileDetails.error}</p>
-            )}
+                {/* ERROR ALERT */}
+                {error && (
+                    <Alert severity="error" sx={{ mb: 2 }}>
+                        {error}
+                    </Alert>
+                )}
 
-            {/* Loading state */}
-            {Object.keys(profileDetails).length === 0 && !profileDetails.err && (
-                <p>Loading...</p>
-            )}
+                {/* MAIN CONTENT */}
+                <Box sx={{ mt: 2 }}>
+                    {isLoading ? renderSkeletons() : renderProfileFields()}
+                </Box>
 
-            {/* Profile form */}
-            {profileDetails.username && (
-                <form className="profile-form">
-                    <div className="field-labels">
-                        {profileDetailsElements.labels}
-                    </div>
-                    <div className="field-inputs">
-                        {profileDetailsElements.inputs}
-                    </div>
-                </form>
-            )}
-
-            {/* Log out button */}
-            {logged.isLogged && (
-                <button onClick={logOut} className="logout-btn">
-                    Log out
-                </button>
-            )}
-        </div>
-    )
+                {/* LOGOUT BUTTON */}
+                <Box sx={{ mt: 4 }}>
+                    <Button 
+                        variant="contained" 
+                        color="error" 
+                        fullWidth 
+                        size="large"
+                        onClick={logOut}
+                        disabled={isLoading}
+                    >
+                        Log Out
+                    </Button>
+                </Box>
+            </Paper>
+        </Container>
+    );
 }

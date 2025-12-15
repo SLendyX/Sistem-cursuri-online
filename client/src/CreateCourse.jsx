@@ -1,176 +1,276 @@
-import React from "react";
+import React, { useState, useContext } from "react";
 import { useNavigate } from "react-router";
-// import PopUpMessage from "./page_elements/PopUpMessage";
+import { LoggedInContext } from "./page_elements/LoggedInContext"; // Adjust path if needed
 
-export default function(){
-    const [numeCurs, setNumeCurs] = React.useState("")
-    const [desc, setDesc] = React.useState("")
-    const [dificultate, setDificultate] = React.useState("usor")
-    const [pret, setPret] = React.useState("")
-    
-    // State-uri noi pentru imagine și erori
-    const [imageFile, setImageFile] = React.useState(null)
-    const [previewUrl, setPreviewUrl] = React.useState(null)
-    const [isDragging, setIsDragging] = React.useState(false)
-    const [errorMessage, setErrorMessage] = React.useState("")
+// MUI Imports
+import {
+    Container,
+    Paper,
+    Typography,
+    Box,
+    TextField,
+    MenuItem,
+    Button,
+    Stack,
+    InputAdornment,
+    Grid,
+    IconButton
+} from '@mui/material';
 
-    const navigate = useNavigate()
+// Icons
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import CloseIcon from '@mui/icons-material/Close';
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 
-    // Păstrăm structura ta de state pentru input-urile text
-    const state = {
-        variables: [numeCurs, desc, dificultate, null, pret], 
-        setFunc: [setNumeCurs, setDesc, setDificultate, null, setPret]
-    }
-    
-    const fieldsArray = ["nume curs", "descriere", "dificultate", "thumbnail image", "pret"]
+export default function CreateCourse() {
+    const navigate = useNavigate();
+    const { showAlert } = useContext(LoggedInContext); // Use global alert system
 
-    // --- Logică Drag & Drop ---
-    const handleDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
-    const handleDragLeave = (e) => { e.preventDefault(); setIsDragging(false); };
-    const handleDrop = (e) => {
-        e.preventDefault();
-        setIsDragging(false);
-        const file = e.dataTransfer.files[0];
-        validateAndSetImage(file);
+    // 1. State Management
+    const [formData, setFormData] = useState({
+        numeCurs: "",
+        desc: "",
+        dificultate: "usor",
+        pret: ""
+    });
+
+    const [imageFile, setImageFile] = useState(null);
+    const [previewUrl, setPreviewUrl] = useState(null);
+    const [isDragging, setIsDragging] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+
+    // 2. Handlers
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
     };
-    const handleFileSelect = (e) => {
-        validateAndSetImage(e.target.files[0]);
-    };
-    const validateAndSetImage = (file) => {
+
+    // Image Validation & Setting
+    const handleImageFile = (file) => {
         if (file && file.type.startsWith('image/')) {
             setImageFile(file);
             setPreviewUrl(URL.createObjectURL(file));
-            setErrorMessage("");
         } else {
-            setErrorMessage("Te rog încarcă un fișier imagine valid.");
-            localStorage.setItem("modalHidden", "false");
+            showAlert("Please upload a valid image file (JPG, PNG).", "error");
         }
     };
-    // ---------------------------
 
-    function handleSubmit(e) {
+    // Drag & Drop Handlers
+    const onDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
+    const onDragLeave = (e) => { e.preventDefault(); setIsDragging(false); };
+    const onDrop = (e) => {
         e.preventDefault();
-        setErrorMessage("");
+        setIsDragging(false);
+        const file = e.dataTransfer.files[0];
+        handleImageFile(file);
+    };
 
-        const formData = new FormData();
-        formData.append("numeCurs", numeCurs);
-        formData.append("descriere", desc);
-        formData.append("dificultate", dificultate);
-        formData.append("pret", pret);
-        if (imageFile) formData.append("image", imageFile);
+    const removeImage = (e) => {
+        e.stopPropagation(); // Prevent clicking the dropzone when clicking X
+        setImageFile(null);
+        setPreviewUrl(null);
+    };
+
+    // Submission Logic
+    const handleSubmit = (e) => {
+        e.preventDefault();
+
+        // Basic validation
+        if (!formData.numeCurs || !formData.desc || !formData.pret) {
+            showAlert("Please fill in all required fields.", "warning");
+            return;
+        }
+
+        setIsLoading(true);
+
+        const data = new FormData();
+        data.append("numeCurs", formData.numeCurs);
+        data.append("descriere", formData.desc);
+        data.append("dificultate", formData.dificultate);
+        data.append("pret", formData.pret);
+        if (imageFile) data.append("image", imageFile);
 
         fetch("/api/courses", {
             method: "POST",
-            body: formData 
+            body: data
         })
-        .then(async res => {
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Something went wrong");
-            return data;
-        })
-        .then(() => {
-            alert("Curs creat cu succes!");
-            navigate("/courses");
-        })
-        .catch(err => {
-            setErrorMessage(err.message);
-            localStorage.setItem("modalHidden", "false");
-        });
-    }
+            .then(async res => {
+                const responseData = await res.json();
+                if (!res.ok) throw new Error(responseData.error || "Something went wrong");
+                return responseData;
+            })
+            .then(() => {
+                showAlert("Course created successfully!", "success");
+                navigate("/courses"); // Or navigate to dashboard
+            })
+            .catch(err => {
+                console.error(err);
+                showAlert(err.message || "Failed to create course.", "error");
+                setIsLoading(false);
+            });
+    };
 
-    const fieldElements = {
-        labels: <div className="field-labels">
-            {fieldsArray.map(field => (
-                <label className="field-label" key={`label-${field}`} htmlFor={field.replace(" ", "-")}>
-                    {field}
-                </label>
-            ))}
-        </div>,
-        
-        inputs: <div className="field-inputs">
-            {fieldsArray.map((field, index) => {
-                const inputId = field.replace(" ", "-");
+    return (
+        <Container maxWidth="md" sx={{ py: 6 }}>
+            <Paper elevation={3} sx={{ p: 4, borderRadius: 2 }}>
+                <Box sx={{ mb: 4, textAlign: 'center' }}>
+                    <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom>
+                        Create New Course
+                    </Typography>
+                    <Typography variant="body1" color="text.secondary">
+                        Fill in the details below to publish a new course.
+                    </Typography>
+                </Box>
 
-                // Cazul 1: Select pentru dificultate
-                if(field === "dificultate"){
-                    return (
-                        <select 
-                            key={index}
-                            id={inputId} 
-                            value={state.variables[index]} 
-                            onChange={e => state.setFunc[index](e.target.value)}
+                <Box component="form" onSubmit={handleSubmit} noValidate>
+                    <Stack spacing={3}>
+
+                        {/* Course Name */}
+                        <TextField
+                            label="Course Title"
+                            name="numeCurs"
+                            value={formData.numeCurs}
+                            onChange={handleChange}
+                            required
+                            fullWidth
+                            variant="outlined"
+                        />
+
+                        {/* Description (Multi-line) */}
+                        <TextField
+                            label="Description"
+                            name="desc"
+                            value={formData.desc}
+                            onChange={handleChange}
+                            required
+                            fullWidth
+                            multiline
+                            rows={4}
+                            variant="outlined"
+                        />
+
+                        <Grid container spacing={2}>
+                            {/* Difficulty Select */}
+                            <Grid item xs={12} sm={6}>
+                                <TextField
+                                    select
+                                    label="Difficulty"
+                                    name="dificultate"
+                                    value={formData.dificultate}
+                                    onChange={handleChange}
+                                    fullWidth
+                                >
+                                    <MenuItem value="usor">Easy</MenuItem>
+                                    <MenuItem value="mediu">Medium</MenuItem>
+                                    <MenuItem value="greu">Hard</MenuItem>
+                                </TextField>
+                            </Grid>
+
+                            {/* Price Input */}
+                            <Grid item xs={12} sm={6}>
+                                <TextField
+                                    label="Price"
+                                    name="pret"
+                                    type="number"
+                                    value={formData.pret}
+                                    onChange={handleChange}
+                                    fullWidth
+                                    InputProps={{
+                                        startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                                    }}
+                                />
+                            </Grid>
+                        </Grid>
+
+                        {/* --- Custom Image Drop Zone --- */}
+                        <Box
+                            onDragOver={onDragOver}
+                            onDragLeave={onDragLeave}
+                            onDrop={onDrop}
+                            onClick={() => document.getElementById('file-upload').click()}
+                            sx={{
+                                border: '2px dashed',
+                                borderColor: isDragging ? 'primary.main' : 'grey.400',
+                                borderRadius: 2,
+                                p: 4,
+                                textAlign: 'center',
+                                cursor: 'pointer',
+                                bgcolor: isDragging ? 'action.hover' : 'background.paper',
+                                transition: 'all 0.2s',
+                                position: 'relative',
+                                minHeight: 150,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
                         >
-                            <option value="usor">usor</option>
-                            <option value="mediu">mediu</option>
-                            <option value="greu">greu</option>
-                        </select>
-                    )
-                }
-
-                // Cazul 2: Zona de Drop pentru imagine
-                if(field === "thumbnail image"){
-                    return (
-                        <div 
-                            key={index}
-                            className={`drop-zone ${isDragging ? 'dragging' : ''}`}
-                            onDragOver={handleDragOver}
-                            onDragLeave={handleDragLeave}
-                            onDrop={handleDrop}
-                            onClick={() => document.getElementById('hidden-file-input').click()}
-                        >
-                            <input 
-                                id="hidden-file-input"
-                                type="file" 
+                            <input
+                                id="file-upload"
+                                type="file"
                                 accept="image/*"
-                                onChange={handleFileSelect}
-                                style={{display: 'none'}} 
+                                hidden
+                                onChange={(e) => {
+                                    if (e.target.files && e.target.files[0]) {
+                                        handleImageFile(e.target.files[0]);
+                                    }
+                                    e.target.value = "";
+                                }}
                             />
+
                             {previewUrl ? (
-                                <div className="image-preview-mini">
-                                    <img src={previewUrl} alt="Preview" />
-                                    <span>Change</span>
-                                </div>
+                                // Preview State
+                                <Box sx={{ position: 'relative', width: '100%', height: '100%', display: 'flex', justifyContent: 'center' }}>
+                                    <Box
+                                        component="img"
+                                        src={previewUrl}
+                                        alt="Preview"
+                                        sx={{ maxHeight: 200, maxWidth: '100%', borderRadius: 1, objectFit: 'cover' }}
+                                    />
+                                    <IconButton
+                                        onClick={removeImage}
+                                        sx={{
+                                            position: 'absolute',
+                                            top: -10,
+                                            right: -10,
+                                            bgcolor: 'background.paper',
+                                            boxShadow: 2,
+                                            '&:hover': { bgcolor: 'grey.200' }
+                                        }}
+                                        size="small"
+                                    >
+                                        <CloseIcon />
+                                    </IconButton>
+                                </Box>
                             ) : (
-                                <span className="drop-text">Click or Drop Image</span>
+                                // Empty State
+                                <>
+                                    <CloudUploadIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
+                                    <Typography variant="h6" color="text.primary">
+                                        Drag & Drop course thumbnail
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                        or click to browse
+                                    </Typography>
+                                </>
                             )}
-                        </div>
-                    )
-                }
+                        </Box>
 
-                // Cazul 3: Input text normal (pentru nume, descriere, pret)
-                return (
-                    <input 
-                        key={index}
-                        id={inputId} 
-                        type={field === "pret" ? "number" : "text"} 
-                        value={state.variables[index]} 
-                        onChange={e => state.setFunc[index](e.target.value)}
-                    />
-                )
-            })}
-        </div>
-    }
+                        {/* Submit Button */}
+                        <Button
+                            type="submit"
+                            variant="contained"
+                            size="large"
+                            disabled={isLoading}
+                            startIcon={<AddCircleOutlineIcon />}
+                            sx={{ py: 1.5, mt: 2 }}
+                        >
+                            {isLoading ? "Creating..." : "Create Course"}
+                        </Button>
 
-    return(
-        <>
-            {errorMessage && (
-                <PopUpMessage 
-                    divClass="popup-message"
-                    pClass="error-message"
-                    changeFlag={errorMessage}
-                >
-                    {errorMessage}
-                </PopUpMessage>
-            )}
-
-            <h1>Create a new course</h1>
-            <form className="profile-form" onSubmit={handleSubmit}>
-                {fieldElements.labels}
-                {fieldElements.inputs}
-                <button className="create-course-btn" style={{display:'none'}}>Submit Hidden</button> 
-            </form>
-            {/* Butonul de submit scos în afară sau stilizat separat, cum era în layout-ul tău */}
-            <button onClick={handleSubmit} className="create-course-btn">Create new Course</button>
-        </>
-    )
+                    </Stack>
+                </Box>
+            </Paper>
+        </Container>
+    );
 }

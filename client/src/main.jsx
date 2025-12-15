@@ -11,23 +11,32 @@ import Course from "./Curs.jsx"
 import About from './About.jsx';
 import Register from './Register.jsx';
 import CreateCourse from './CreateCourse.jsx';
+import RequireAuth from './RequireAuth.jsx';
+import PublicOnlyRoute from './PublicOnlyRoute.jsx';
+import TeacherOnlyRoute from './TeacherOnlyRoute.jsx';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
       <Routes>
         <Route element={<DashBoard />}>
-        <Route index element={<Home />} />
-        <Route path='login' element={<Login />} />
-        <Route path='register' element={<Register />} />
-        <Route path='profile' element={<Profile />}/>
-        <Route path='about' element={<About />} />
-        <Route path="create_course" element={<CreateCourse/>}/>
-        <Route path='courses' element={<Courses />}>
-          <Route path=":courseId" element={<Course />} />
-        </Route>
+          <Route index element={<Home />} />
+          <Route element={<PublicOnlyRoute />}>
+            <Route path='login' element={<Login />} />
+            <Route path='register' element={<Register />} />
+          </Route>
+          <Route path='about' element={<About />} />
+          <Route element={<RequireAuth />}>
+            <Route path="/profile" element={<Profile />} />
+            <Route element={<TeacherOnlyRoute />}>
+              <Route path="create_course" element={<CreateCourse />} />
+            </Route>
+          </Route>
+          <Route path='courses' element={<Courses />}>
+            <Route path=":courseId" element={<Course />} />
+          </Route>
         </Route>
       </Routes>
     </BrowserRouter>
   </StrictMode>
-,)
+  ,)

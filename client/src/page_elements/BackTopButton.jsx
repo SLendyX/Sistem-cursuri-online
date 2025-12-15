@@ -1,27 +1,49 @@
-import { useEffect, useState } from "react";
+import React from 'react';
+import { Zoom, Fab, Box} from '@mui/material';
+import useScrollTrigger from '@mui/material/useScrollTrigger';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 
-function BackToTopButton() {
-  const [visible, setVisible] = useState(false);
+function BackToTopButton(props) {
+  const trigger = useScrollTrigger({
+    disableHysteresis: true, 
+    threshold: 100,          
+  });
 
-  useEffect(() => {
-    const handleScroll = () => {
-      setVisible(window.scrollY > 10);
-    };
-    window.addEventListener("scroll", handleScroll);
+  const handleClick = (event) => {
+    const anchor = (event.target.ownerDocument || document).querySelector(
+      '#back-to-top-anchor',
+    );
 
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+    if (anchor) {
+      anchor.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   return (
-    <button
-      className="back-to-top-button"
-      style={{
-        display: visible ? "block" : "none",
-      }}
-      onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-    >
-      ↑ Back to Top
-    </button>
+    <Zoom in={trigger}>
+      <Box
+        role="presentation"
+        sx={{
+          position: 'fixed',
+          bottom: 32,
+          right: 32,
+          zIndex: 1000, 
+        }}
+      >
+        <Fab 
+            onClick={handleClick}
+            className='back-to-top-button'
+            size="small" 
+            aria-label="scroll back to top"
+        >
+          <KeyboardArrowUpIcon
+            sx={{color:"white"}}  
+          />
+        </Fab>
+      </Box>
+    </Zoom>
   );
 }
 
