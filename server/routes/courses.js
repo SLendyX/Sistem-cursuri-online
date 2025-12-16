@@ -56,7 +56,7 @@ const verifyToken = (req) => {
 router.get("/courses", async(req, res)=>{
     try{
         const conn = await pool.getConnection();
-        const rows = await conn.query("SELECT * FROM curs");
+        const rows = await conn.query("SELECT c.*,u.name FROM curs AS c JOIN user AS u ON c.autor_id = u.id");
         conn.release();
         res.json(rows);
     }catch(err){

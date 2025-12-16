@@ -378,6 +378,10 @@ footer{
 }
 
 /*------ home page --------*/
+.course-card-link, .course-card-link:hover{
+  text-decoration: none;
+}
+
 .course-thumbnail{
   width: 90%;
   height: 150px;
@@ -548,3 +552,6 @@ input#image{
   object-fit: cover;
   border-radius: 4px;
 }
+
+/* editor */
+

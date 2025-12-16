@@ -14,6 +14,7 @@ import CreateCourse from './CreateCourse.jsx';
 import RequireAuth from './RequireAuth.jsx';
 import PublicOnlyRoute from './PublicOnlyRoute.jsx';
 import TeacherOnlyRoute from './TeacherOnlyRoute.jsx';
+import CourseEditorLayout from './CourseEditorLayout.jsx';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -32,8 +33,13 @@ createRoot(document.getElementById('root')).render(
               <Route path="create_course" element={<CreateCourse />} />
             </Route>
           </Route>
-          <Route path='courses' element={<Courses />}>
+          <Route path='courses'>
+            <Route index element={<Courses />} />
             <Route path=":courseId" element={<Course />} />
+          </Route>
+          <Route path="instructor/course/:courseId/edit" element={<CourseEditorLayout />}>
+            {/* <Route index element={<CourseCurriculumEditor />} />
+            <Route path="lesson/:lessonId" element={<LessonContentEditor />} /> */}
           </Route>
         </Route>
       </Routes>
