@@ -1,6 +1,6 @@
 import React, { useState, useContext } from "react";
 import { useNavigate } from "react-router";
-import { LoggedInContext } from "./page_elements/LoggedInContext"; // Adjust path if needed
+import { LoggedInContext } from "./context/LoggedInContext"; // Adjust path if needed
 
 // MUI Imports
 import {

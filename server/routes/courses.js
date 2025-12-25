@@ -64,6 +64,27 @@ router.get("/courses", async(req, res)=>{
     }
 })
 
+router.get("/my_courses", async(req, res)=>{
+    const userId = verifyToken(req);
+    if (!userId) return res.status(401).json({ error: "Not authenticated" });
+
+    try{
+        const conn = await pool.getConnection();
+        const [user] = await conn.query("SELECT type FROM user WHERE id = ?", [userId]);
+
+        if (user?.type !== 'professor') {
+            conn.release();
+            return res.status(403).json({ error: "Only professors can edit courses" });
+        }
+
+        const rows = await conn.query("SELECT c.*,u.name FROM curs AS c JOIN user AS u ON c.autor_id = u.id WHERE id = ?", [userId]);
+        conn.release();
+        res.json(rows);
+    }catch(err){
+        res.status(500).json({error: err.message});
+    }
+})
+
 // Ruta POST modificată pentru upload
 router.post("/courses", upload.single('image'), async (req, res) => {
     const userId = verifyToken(req);

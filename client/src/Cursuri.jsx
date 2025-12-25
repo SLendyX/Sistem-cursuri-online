@@ -64,7 +64,7 @@ export default function Courses() {
             {!loading && !error && (
                 <>
                     {courses.length > 0 ? (
-                        <Grid container spacing={4}>
+                        <Grid container spacing={3}>
                             {courses.map((curs, index) => (
                                 <Grid item key={index} xs={12} sm={6} md={4}>
                                     <CourseCard curs={curs} />

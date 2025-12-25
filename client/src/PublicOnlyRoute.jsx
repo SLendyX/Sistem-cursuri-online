@@ -1,11 +1,11 @@
 import { useContext } from "react";
 import { Navigate, Outlet } from "react-router";
-import { LoggedInContext } from "./page_elements/LoggedInContext";
+import { LoggedInContext } from "./context/LoggedInContext";
 import CircularProgress from '@mui/material/CircularProgress';
 import Box from '@mui/material/Box';
 
 const PublicOnlyRoute = () => {
-    const { isLogged, isLoading } = useContext(LoggedInContext);
+    const { isLogged, isLoading, userData } = useContext(LoggedInContext);
 
     if (isLoading) {
         return (
@@ -16,7 +16,13 @@ const PublicOnlyRoute = () => {
     }
 
     if (isLogged) {
-        return <Navigate to="/" replace />;
+        if (userData.type === "professor") {
+            return <Navigate to="/instructor" replace />;
+        } else {
+            return <Navigate to="/" replace />;
+        }
+
+        
     }
 
     return <Outlet />;

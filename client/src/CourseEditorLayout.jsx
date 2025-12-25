@@ -7,8 +7,6 @@ import { CSS } from '@dnd-kit/utilities';
 import {
     Box,
     Drawer,
-    AppBar,        
-    Toolbar,
     List,
     Typography,
     Divider,
@@ -26,7 +24,7 @@ const drawerWidth = 300;
 
 function SortableSidebarItem({ id, title, active, onClick }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
-    const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+    const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1, overflowX:'none' };
     
     return (
         <ListItem ref={setNodeRef} style={style} disablePadding secondaryAction={
@@ -66,25 +64,26 @@ export default function CourseEditorLayout() {
     }
 
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+        // Changed height from 100vh to calc(100vh - 64px) to fit between Nav and Footer roughly
+        <Box sx={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 80px)' }}>
             <CssBaseline />
 
             <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-                
                 <Drawer
                     variant="permanent"
+                    anchor="left" 
                     sx={{
                         width: drawerWidth,
                         flexShrink: 0,
                         [`& .MuiDrawer-paper`]: { 
                             width: drawerWidth, 
                             boxSizing: 'border-box',
-                            position: 'relative', 
+                            position: 'relative', // Keeps it in the flex flow
                             height: '100%'        
                         },
                     }}
                 >
-                    <Box sx={{ overflow: 'auto', p: 2 }}>
+                    <Box sx={{ overflow: 'auto', p: 2}}>
                         <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
                             Curriculum
                         </Typography>
@@ -107,9 +106,10 @@ export default function CourseEditorLayout() {
                     </Box>
                 </Drawer>
 
-                <Box component="main" sx={{ flexGrow: 1, p: 3, overflow: 'auto' }}>
+                <Box component="main" sx={{ flexGrow: 1, p: 3, overflow: 'auto',  width:"100%"  }}>
                     <Outlet context={{ items, setItems }} />
                 </Box>
+
             </Box>
         </Box>
     );

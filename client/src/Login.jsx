@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useNavigate } from "react-router"; // or "react-router-dom" depending on your version
-import { LoggedInContext } from './page_elements/LoggedInContext';
+import { LoggedInContext } from './context/LoggedInContext';
 
 // MUI Imports
 import Avatar from '@mui/material/Avatar';
@@ -42,6 +42,8 @@ export default function(){
             setIsLogged(true);
             setUserData(profileData);
             if (showAlert) showAlert("Welcome back!", "success");
+
+            console.log(profileData)
         })
         .catch(err => {
             showAlert(err.message || "Login failed", "error");

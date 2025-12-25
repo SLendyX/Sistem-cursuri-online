@@ -1,8 +1,9 @@
 import React from "react";
-import { NavLink } from "react-router";
-import { LoggedInContext } from "./LoggedInContext";
-import { AppBar, Stack, Divider, Container, Skeleton, Typography, Toolbar, IconButton, Menu, MenuItem } from '@mui/material';
+import { NavLink, Link } from "react-router";
+import { LoggedInContext } from "../context/LoggedInContext";
+import { AppBar, Button, Stack, Divider, Container, Skeleton, Typography, Toolbar, IconButton, Menu, MenuItem } from '@mui/material';
 import AccountCircle from '@mui/icons-material/AccountCircle';
+import NavSkeleton from "./NavSkeleton";
 
 export default function () {
   const linkArray = ["courses", "about", "login"];
@@ -41,17 +42,14 @@ export default function () {
               spacing={1}
               divider={<Divider orientation="vertical" flexItem />}
             >
-              {linkArray.map((link, index) => {
+              {isLoading ? <NavSkeleton/> : linkArray.map((link, index) => {
                 if (link === "login" && isLogged) return null;
 
                 return (
-                  <NavLink
-                    to={`/${link}`}
-                    key={index}
-                    className="nav-link"
-                  >
+                  <Button component={Link} to={`/${link}`} key={index}
+                    className="nav-link">
                     {linkText[index]}
-                  </NavLink>
+                  </Button>
                 );
               })}
 
@@ -71,6 +69,7 @@ export default function () {
                       <AccountCircle />
                     </IconButton>
                     <Menu
+                      sx={{ mt: '45px' }}
                       id="menu-appbar"
                       anchorEl={anchorElUser}
                       anchorOrigin={{
@@ -86,7 +85,7 @@ export default function () {
                       onClose={handleCloseUserMenu}
                     >
                       <MenuItem onClick={handleCloseUserMenu}>
-                        <NavLink to="/profile" className="dropdown-item"
+                        <NavLink to={`${userData?.type === 'professor' ? "/instructor" : ""}/profile`} className="dropdown-item"
                         >
                           My Account
                         </NavLink>
@@ -100,8 +99,8 @@ export default function () {
 
                       {userData?.type === 'professor' && (
                         <MenuItem onClick={handleCloseUserMenu}>
-                          <NavLink to="/create_course" className="dropdown-item">
-                            Create Course
+                          <NavLink to="/instructor" className="dropdown-item">
+                            Modul Profesor
                           </NavLink>
 
                         </MenuItem>
@@ -123,45 +122,5 @@ export default function () {
         </Container>
       </AppBar>
     </>
-
-    // <nav className="navbar">
-    //   <header>
-    //     <NavLink to="/" className="nav-logo">
-    //       Learnify
-    //     </NavLink>
-    //   </header>
-
-    //   <div className="nav-links">
-    //     {linkArray.map((link, index) => (
-    //       <NavLink
-    //         to={`/${link}`}
-    //         key={index}
-    //         className="nav-link"
-    //         style={link === "login" ? {display: isLogged ? "none" : ""} : {}}
-    //       >
-    //         {linkText[index]}
-    //       </NavLink>
-    //     ))}
-
-    //     {isLogged && (
-    //         <div className="nav-user-container">
-    //             <div className="user-avatar-wrapper">
-    //               <NavLink to="profile">
-    //                 <img src={defaultImg} alt="User" className="nav-user-avatar" />
-    //               </NavLink>
-    //             </div>
-
-    //             <div className="dropdown-menu">
-    //                 <NavLink to="/profile" className="dropdown-item">Profile</NavLink>
-    //                 <NavLink to="/" className="dropdown-item">My Courses</NavLink>
-    //                 {userData?.type === 'professor' && (
-    //                     <NavLink to="/create_course" className="dropdown-item">Create Course</NavLink>
-    //                 )}
-    //                 <button onClick={logOut} className="dropdown-item logout-link">Logout</button>
-    //             </div>
-    //         </div>
-    //     )}
-    //   </div>
-    // </nav>
   );
 }
