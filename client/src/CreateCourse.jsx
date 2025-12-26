@@ -101,7 +101,7 @@ export default function CreateCourse() {
             })
             .then(() => {
                 showAlert("Course created successfully!", "success");
-                navigate("/courses"); // Or navigate to dashboard
+                navigate("../my_courses"); // Or navigate to dashboard
             })
             .catch(err => {
                 console.error(err);
@@ -111,7 +111,7 @@ export default function CreateCourse() {
     };
 
     return (
-        <Container maxWidth="md" sx={{ py: 6 }}>
+        <Container maxWidth="sm" sx={{ py: 6 }}>
             <Paper elevation={3} sx={{ p: 4, borderRadius: 2 }}>
                 <Box sx={{ mb: 4, textAlign: 'center' }}>
                     <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom>

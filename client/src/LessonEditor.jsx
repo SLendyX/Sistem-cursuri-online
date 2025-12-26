@@ -12,7 +12,6 @@ import {
     List,
     ListItem,
     ListItemText,
-    ListItemSecondaryAction,
     Alert
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -29,7 +28,7 @@ export default function LessonEditor() {
     const [content, setContent] = useState('');
     const [videoUrl, setVideoUrl] = useState('');
     const [links, setLinks] = useState([]);
-    
+
     // State pentru input-ul de link nou
     const [newLinkUrl, setNewLinkUrl] = useState('');
     const [newLinkLabel, setNewLinkLabel] = useState('');
@@ -58,8 +57,8 @@ export default function LessonEditor() {
         setTitle(newTitle);
 
         // Actualizăm lista globală pentru Sidebar
-        setItems(prevItems => 
-            prevItems.map(item => 
+        setItems(prevItems =>
+            prevItems.map(item =>
                 item.id === lessonId ? { ...item, title: newTitle } : item
             )
         );
@@ -103,9 +102,9 @@ export default function LessonEditor() {
                 <Typography variant="h5" fontWeight="bold" color="primary">
                     Editare Lecție
                 </Typography>
-                <Button 
-                    variant="contained" 
-                    startIcon={<SaveIcon />} 
+                <Button
+                    variant="contained"
+                    startIcon={<SaveIcon />}
                     onClick={handleSave}
                 >
                     Salvează Modificările
@@ -175,8 +174,8 @@ export default function LessonEditor() {
                         value={newLinkUrl}
                         onChange={(e) => setNewLinkUrl(e.target.value)}
                     />
-                    <Button 
-                        variant="outlined" 
+                    <Button
+                        variant="outlined"
                         startIcon={<AddLinkIcon />}
                         onClick={handleAddLink}
                         sx={{ whiteSpace: 'nowrap' }}
@@ -195,18 +194,18 @@ export default function LessonEditor() {
                         </Typography>
                     )}
                     {links.map((link, index) => (
-                        <ListItem key={index} divider>
-                            <ListItemText 
-                                primary={link.label} 
-                                secondary={link.url} 
-                                primaryTypographyProps={{ fontWeight: 'medium' }}
-                            />
-                            <ListItemSecondaryAction>
+                        <ListItem
+                            key={index}
+                            divider
+                            // ✅ Prop on the Item itself
+                            secondaryAction={
                                 <IconButton edge="end" color="error" onClick={() => handleDeleteLink(index)}>
                                     <DeleteIcon />
                                 </IconButton>
-                            </ListItemSecondaryAction>
-                        </ListItem>
+                            }
+                        >
+                            <ListItemText primary={link.label} secondary={link.url} />
+                        </ListItem> 
                     ))}
                 </List>
             </Paper>

@@ -19,6 +19,7 @@ import Register from './Register.jsx';
 import CreateCourse from './CreateCourse.jsx';
 import CourseEditorLayout from './CourseEditorLayout.jsx';
 import CreatedCourses from './CreatedCourses.jsx';
+import LessonEditor from './LessonEditor.jsx';
 
 // Guards
 import RequireAuth from './RequireAuth.jsx';
@@ -63,18 +64,28 @@ createRoot(document.getElementById('root')).render(
           {/* ================================================= */}
           <Route path="instructor" element={<TeacherOnlyRoute />}>
             <Route element={<ProfessorLayout />}>
-              {/* Aici poți face o pagină DashboardInstructor.jsx */}
-              <Route index element={<h1>Dashboard Instructor (Statistici, etc)</h1>} />
-
+              <Route index element={<h1>Dashboard Instructor</h1>} />
               <Route path="profile" element={<Profile />} />
-
               <Route path="create_course" element={<CreateCourse />} />
-              <Route path='my_courses' element={<CreatedCourses/>} />
+              <Route path='my_courses' element={<CreatedCourses />} />
 
-              {/* Editorul de curs poate avea propriul layout sau folosi pe cel de prof */}
+              {/* --- THE COURSE EDITOR ROUTES --- */}
+              {/* 1. Base Route (The Layout loads here) */}
               <Route path="course/:courseId/edit" element={<CourseEditorLayout />}>
-                {/* Sub-rute pentru editor */}
+
+                {/* 2. Course Overview (Shows up when you first click 'Edit') */}
+                <Route index element={<h1>Course Overview & Settings</h1>} />
+
+                {/* 3. Chapter Level (We drill down here) */}
+                <Route path="chapter/:chapterId">
+                  {/* When clicking a chapter, maybe show a chapter summary? */}
+                  <Route index element={<h1>Chapter Details (Edit Title/Description)</h1>} />
+
+                  {/* 4. Lesson Level (The actual editor you already have) */}
+                  <Route path="lesson/:lessonId" element={<LessonEditor />} />
+                </Route>
               </Route>
+
             </Route>
           </Route>
         </Routes>
