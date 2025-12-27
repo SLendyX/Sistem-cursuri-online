@@ -20,6 +20,8 @@ import CreateCourse from './CreateCourse.jsx';
 import CourseEditorLayout from './CourseEditorLayout.jsx';
 import CreatedCourses from './CreatedCourses.jsx';
 import LessonEditor from './LessonEditor.jsx';
+import ChapterEditor from './ChapterEditor.jsx';
+import CourseEditor from './CourseEditor.jsx';
 
 // Guards
 import RequireAuth from './RequireAuth.jsx';
@@ -74,12 +76,12 @@ createRoot(document.getElementById('root')).render(
               <Route path="course/:courseId/edit" element={<CourseEditorLayout />}>
 
                 {/* 2. Course Overview (Shows up when you first click 'Edit') */}
-                <Route index element={<h1>Course Overview & Settings</h1>} />
+                <Route index element={<CourseEditor />} />
 
                 {/* 3. Chapter Level (We drill down here) */}
                 <Route path="chapter/:chapterId">
                   {/* When clicking a chapter, maybe show a chapter summary? */}
-                  <Route index element={<h1>Chapter Details (Edit Title/Description)</h1>} />
+                  <Route index element={<ChapterEditor />} />
 
                   {/* 4. Lesson Level (The actual editor you already have) */}
                   <Route path="lesson/:lessonId" element={<LessonEditor />} />

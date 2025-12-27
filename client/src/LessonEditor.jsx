@@ -1,211 +1,273 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useOutletContext } from 'react-router';
 import {
-    Box,
-    TextField,
-    Typography,
-    Button,
-    Paper,
-    Divider,
-    IconButton,
-    Stack,
-    List,
-    ListItem,
-    ListItemText,
-    Alert
+    Box, TextField, Typography, Button, Paper, Stack, List, ListItem, ListItemText,
+    CircularProgress, Tooltip, IconButton
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddLinkIcon from '@mui/icons-material/AddLink';
-import SaveIcon from '@mui/icons-material/Save';
+import CloudDoneIcon from '@mui/icons-material/CloudDone';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
 
 export default function LessonEditor() {
     const { lessonId } = useParams();
-    const { items, setItems } = useOutletContext(); // Luăm funcțiile din Layout pentru a actualiza Sidebar-ul
+    const { items, setItems } = useOutletContext();
 
-    // State pentru datele locale ale lecției
+    // Data States
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
     const [videoUrl, setVideoUrl] = useState('');
     const [links, setLinks] = useState([]);
 
-    // State pentru input-ul de link nou
+    // UI States
+    const [saveStatus, setSaveStatus] = useState('saved');
+    const [lastSaved, setLastSaved] = useState(null);
+
+    const dataRef = useRef({ id: lessonId, title, content, videoUrl, links });
+    const isDirtyRef = useRef(false);
+
+    useEffect(() => {
+        dataRef.current = { id: lessonId, title, content, videoUrl, links };
+    }, [lessonId, title, content, videoUrl, links]);
+
     const [newLinkUrl, setNewLinkUrl] = useState('');
     const [newLinkLabel, setNewLinkLabel] = useState('');
 
-    // Când se schimbă lessonId, încărcăm datele (Simulare)
+    // 1. LOAD DATA
     useEffect(() => {
-        // 1. Găsim titlul din lista globală (sidebar)
-        const currentItem = items.find(i => i.id === lessonId);
-        if (currentItem) {
-            setTitle(currentItem.title);
+        let isMounted = true;
+        setTitle(""); setContent(""); setVideoUrl(""); setLinks([]);
+
+        fetch(`/api/lessons/${lessonId}`)
+            .then(async res => {
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+
+                if (isMounted) {
+                    const { title, content, video_url, links } = data;
+                    setTitle(title || "");
+                    setContent(content || "");
+                    setVideoUrl(video_url || "");
+                    setLinks(links || []);
+                    isDirtyRef.current = false;
+                    setSaveStatus('saved');
+                }
+            })
+            .catch(err => console.error("Load failed", err));
+
+        return () => { isMounted = false; };
+    }, [lessonId]);
+
+    // 👇 HELPER: Detects Video Type and Formats URL
+    const getVideoEmbed = (url) => {
+        if (!url) return null;
+
+        // 1. YouTube
+        if (url.includes("youtube.com") || url.includes("youtu.be")) {
+            let videoId = "";
+            try {
+                if (url.includes("watch?v=")) videoId = url.split("watch?v=")[1].split("&")[0];
+                else if (url.includes("youtu.be/")) videoId = url.split("youtu.be/")[1].split("?")[0];
+                else if (url.includes("embed/")) videoId = url.split("embed/")[1];
+            } catch (e) { return null; }
+
+            if (!videoId) return null;
+            return { type: 'iframe', src: `https://www.youtube.com/embed/${videoId}` };
         }
 
-        // 2. Aici ar trebui să faci fetch la backend pentru conținutul specific lecției
-        // fetch(`/api/lessons/${lessonId}`)...
-        // Pentru demo, resetăm sau setăm valori dummy
-        setContent(`Conținut pentru lecția ${lessonId}... Poți folosi Markdown aici.`);
-        setVideoUrl('');
-        setLinks([
-            { label: 'Documentație React', url: 'https://react.dev' }
-        ]);
-    }, [lessonId, items]);
+        // 2. Vimeo
+        if (url.includes("vimeo.com")) {
+            // Converts vimeo.com/12345 -> player.vimeo.com/video/12345
+            const vimeoId = url.split("vimeo.com/")[1]?.split("/")[0];
+            if (vimeoId) {
+                return { type: 'iframe', src: `https://player.vimeo.com/video/${vimeoId}` };
+            }
+        }
 
-    // Handler pentru schimbarea titlului (actualizează și Sidebar-ul în timp real)
+        // 3. Direct Files (.mp4, .webm, .ogg)
+        if (url.match(/\.(mp4|webm|ogg)$/i)) {
+            return { type: 'video', src: url };
+        }
+
+        return null; // Unknown format
+    };
+
+    // 2. SAVE FUNCTION
+    const saveLesson = useCallback(async (data, { isUnmounting = false } = {}) => {
+        if (!isUnmounting) setSaveStatus('saving');
+        const minDelay = new Promise(resolve => setTimeout(resolve, 800));
+
+        try {
+            const fetchPromise = fetch(`/api/lessons/${data.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+                keepalive: true
+            });
+
+            if (isUnmounting) {
+                fetchPromise.catch(e => console.error("Exit save failed", e));
+                return;
+            }
+
+            const [response] = await Promise.all([fetchPromise, minDelay]);
+            if (!response.ok) throw new Error("Save failed");
+
+            setSaveStatus('saved');
+            setLastSaved(new Date());
+            isDirtyRef.current = false;
+
+        } catch (error) {
+            console.error("Auto-save failed:", error);
+            if (!isUnmounting) setSaveStatus('error');
+        }
+    }, []);
+
+    // 3. AUTO-SAVE
+    useEffect(() => {
+        if (!title && !content && !videoUrl) return;
+        isDirtyRef.current = true;
+
+        const dataToSave = { id: lessonId, title, content, videoUrl, links };
+        const timer = setTimeout(() => {
+            saveLesson(dataToSave);
+        }, 2000);
+
+        return () => clearTimeout(timer);
+    }, [title, content, videoUrl, links, lessonId, saveLesson]);
+
+    // Cleanup & Exit Saves
+    useEffect(() => {
+        return () => {
+            if (isDirtyRef.current) saveLesson(dataRef.current, { isUnmounting: true });
+        };
+    }, [lessonId, saveLesson]);
+
+    useEffect(() => {
+        const handleBeforeUnload = () => {
+            if (isDirtyRef.current) saveLesson(dataRef.current, { isUnmounting: true });
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [saveLesson]);
+
+    // Handlers
     const handleTitleChange = (e) => {
         const newTitle = e.target.value;
         setTitle(newTitle);
-
-        // Actualizăm lista globală pentru Sidebar
-        setItems(prevItems =>
-            prevItems.map(item =>
-                item.id === lessonId ? { ...item, title: newTitle } : item
-            )
-        );
+        setItems(prev => prev.map(i => i.id === Number(lessonId) ? { ...i, title: newTitle } : i));
     };
 
-    // Handler pentru adăugarea unui link
     const handleAddLink = () => {
         if (newLinkUrl && newLinkLabel) {
             setLinks([...links, { url: newLinkUrl, label: newLinkLabel }]);
-            setNewLinkUrl('');
-            setNewLinkLabel('');
+            setNewLinkUrl(''); setNewLinkLabel('');
         }
     };
 
-    // Handler pentru ștergerea unui link
     const handleDeleteLink = (index) => {
         setLinks(links.filter((_, i) => i !== index));
     };
 
-    const handleSave = () => {
-        const lessonData = {
-            id: lessonId,
-            title,
-            content,
-            videoUrl,
-            links
-        };
-        console.log("Saving Lesson Data:", lessonData);
-        // fetch('/api/lessons/update', { method: 'POST', body: ... })
-        alert("Lecție salvată cu succes!");
+    const getStatusIcon = () => {
+        switch (saveStatus) {
+            case 'saving': return <CircularProgress size={20} color="inherit" />;
+            case 'saved': return <CloudDoneIcon color="success" />;
+            case 'error': return <ErrorOutlineIcon color="error" />;
+            default: return <CloudDoneIcon color="disabled" />;
+        }
     };
 
-    if (!items.find(i => i.id === lessonId)) {
-        return <Typography p={3}>Lecția nu a fost găsită.</Typography>;
-    }
+    const embedInfo = getVideoEmbed(videoUrl); // Get embed info relative to current input
 
     return (
         <Box maxWidth="md" mx="auto">
-            {/* Header cu Titlu și Buton Salvare */}
-            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
-                <Typography variant="h5" fontWeight="bold" color="primary">
-                    Editare Lecție
-                </Typography>
-                <Button
-                    variant="contained"
-                    startIcon={<SaveIcon />}
-                    onClick={handleSave}
-                >
-                    Salvează Modificările
-                </Button>
+            {/* Header */}
+            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}
+                sx={{ bgcolor: 'background.paper', p: 2, borderRadius: 2, boxShadow: 1 }}>
+                <Box>
+                    <Typography variant="h5" fontWeight="bold">Edit Lesson</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                        {lastSaved ? `Last saved at ${lastSaved.toLocaleTimeString()}` : 'Changes save automatically'}
+                    </Typography>
+                </Box>
+                <Stack direction="row" alignItems="center" spacing={1}>
+                    <Typography variant="body2" color="text.secondary" sx={{ textTransform: 'capitalize' }}>
+                        {saveStatus === 'saving' ? 'Saving...' : saveStatus}
+                    </Typography>
+                    <Tooltip title={saveStatus === 'error' ? "Failed to save" : "Auto-save active"}>
+                        <Box sx={{ display: 'flex' }}>{getStatusIcon()}</Box>
+                    </Tooltip>
+                </Stack>
             </Stack>
 
+            {/* Editor Forms */}
             <Paper sx={{ p: 3, mb: 3 }}>
                 <Stack spacing={3}>
-                    {/* 1. Titlul Lecției */}
                     <TextField
-                        label="Titlu Lecție"
-                        variant="outlined"
-                        fullWidth
-                        value={title}
-                        onChange={handleTitleChange}
-                        helperText="Acest titlu va apărea în bara laterală."
+                        label="Lesson Title" variant="outlined" fullWidth
+                        value={title} onChange={handleTitleChange}
                     />
 
-                    {/* 2. Video URL */}
                     <TextField
-                        label="Video URL (YouTube/Vimeo)"
-                        variant="outlined"
-                        fullWidth
+                        label="Video URL" variant="outlined" fullWidth
+                        placeholder="YouTube, Vimeo, or MP4 Link"
                         value={videoUrl}
                         onChange={(e) => setVideoUrl(e.target.value)}
-                        InputProps={{
-                            startAdornment: <PlayCircleOutlineIcon color="action" sx={{ mr: 1 }} />,
-                        }}
+                        slotProps={{ input: { startAdornment: <PlayCircleOutlineIcon color="action" sx={{ mr: 1 }} /> } }}
                     />
 
-                    {/* 3. Conținut Text (Descriere) */}
+                    {/* 👇 UNIVERSAL PLAYER LOGIC */}
+                    {embedInfo ? (
+                        <Box sx={{ mt: 2, borderRadius: 2, overflow: 'hidden', border: '1px solid #ddd', bgcolor: '#000' }}>
+                            <Box sx={{ position: 'relative', paddingTop: '56.25%' }}>
+                                {embedInfo.type === 'iframe' ? (
+                                    <iframe
+                                        src={embedInfo.src}
+                                        title="Video Preview"
+                                        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+                                        frameBorder="0"
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                        allowFullScreen
+                                    />
+                                ) : (
+                                    <video
+                                        src={embedInfo.src}
+                                        controls
+                                        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+                                    />
+                                )}
+                            </Box>
+                        </Box>
+                    ) : videoUrl && (
+                        // Fallback message
+                        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                            Preview not available for this URL format. Supported: YouTube, Vimeo, MP4.
+                        </Typography>
+                    )}
+
                     <TextField
-                        label="Conținut Lecție (Text / Markdown)"
-                        multiline
-                        minRows={6}
-                        variant="outlined"
-                        fullWidth
-                        value={content}
-                        onChange={(e) => setContent(e.target.value)}
-                        placeholder="Scrie aici detaliile lecției..."
+                        label="Content (Markdown)" multiline minRows={10} variant="outlined" fullWidth
+                        value={content} onChange={(e) => setContent(e.target.value)}
                     />
                 </Stack>
             </Paper>
 
-            {/* 4. Secțiunea Link-uri și Resurse */}
             <Paper sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                    Resurse & Link-uri Utile
-                </Typography>
-                <Typography variant="body2" color="text.secondary" mb={2}>
-                    Adaugă materiale suplimentare pentru studenți.
-                </Typography>
-
-                {/* Formular Adăugare Link */}
+                <Typography variant="h6" gutterBottom>Resources</Typography>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mb={2}>
-                    <TextField
-                        label="Text Link (ex: Github Repo)"
-                        size="small"
-                        fullWidth
-                        value={newLinkLabel}
-                        onChange={(e) => setNewLinkLabel(e.target.value)}
-                    />
-                    <TextField
-                        label="URL (https://...)"
-                        size="small"
-                        fullWidth
-                        value={newLinkUrl}
-                        onChange={(e) => setNewLinkUrl(e.target.value)}
-                    />
-                    <Button
-                        variant="outlined"
-                        startIcon={<AddLinkIcon />}
-                        onClick={handleAddLink}
-                        sx={{ whiteSpace: 'nowrap' }}
-                    >
-                        Adaugă
-                    </Button>
+                    <TextField label="Link Label" size="small" fullWidth value={newLinkLabel} onChange={(e) => setNewLinkLabel(e.target.value)} />
+                    <TextField label="URL" size="small" fullWidth value={newLinkUrl} onChange={(e) => setNewLinkUrl(e.target.value)} />
+                    <Button variant="outlined" startIcon={<AddLinkIcon />} onClick={handleAddLink}>Add</Button>
                 </Stack>
-
-                <Divider />
-
-                {/* Lista Link-uri Existente */}
                 <List>
-                    {links.length === 0 && (
-                        <Typography variant="body2" color="text.secondary" py={2} textAlign="center">
-                            Niciun link adăugat.
-                        </Typography>
-                    )}
                     {links.map((link, index) => (
-                        <ListItem
-                            key={index}
-                            divider
-                            // ✅ Prop on the Item itself
-                            secondaryAction={
-                                <IconButton edge="end" color="error" onClick={() => handleDeleteLink(index)}>
-                                    <DeleteIcon />
-                                </IconButton>
-                            }
-                        >
+                        <ListItem key={index} divider secondaryAction={
+                            <IconButton edge="end" color="error" onClick={() => handleDeleteLink(index)}><DeleteIcon /></IconButton>
+                        }>
                             <ListItemText primary={link.label} secondary={link.url} />
-                        </ListItem> 
+                        </ListItem>
                     ))}
                 </List>
             </Paper>
