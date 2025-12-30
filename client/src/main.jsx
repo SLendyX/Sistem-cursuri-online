@@ -1,4 +1,3 @@
-// client/src/main.jsx (Updated)
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from "react-router";
@@ -8,15 +7,15 @@ import './index.css'
 import AuthProvider from './context/AuthProvider.jsx';
 import StudentLayout from './page_elements/StudentLayout.jsx';
 import ProfessorLayout from './page_elements/ProfessorLayout.jsx';
-import CoursePlayerLayout from './CoursePlayerLayout.jsx'; // NEW
+import CoursePlayerLayout from './CoursePlayerLayout.jsx';
 
 // Pages
 import Home from './Home.jsx'
 import Login from "./Login.jsx"
 import Profile from "./Profil.jsx"
 import Courses from "./Cursuri.jsx"
-import CourseLanding from './CourseLanding.jsx'; // NEW - Public course page
-import LessonPlayer from './LessonPlayer.jsx'; // NEW - Student lesson view
+import CourseLanding from './CourseLanding.jsx';
+import LessonPlayer from './LessonPlayer.jsx';
 import About from './About.jsx';
 import Register from './Register.jsx';
 import CreateCourse from './CreateCourse.jsx';
@@ -25,6 +24,8 @@ import CreatedCourses from './CreatedCourses.jsx';
 import LessonEditor from './LessonEditor.jsx';
 import ChapterEditor from './ChapterEditor.jsx';
 import CourseEditor from './CourseEditor.jsx';
+import Statistics from './Statistics.jsx'; // NEW
+import MyLearning from './MyLearning.jsx'; // NEW
 
 // Guards
 import RequireAuth from './RequireAuth.jsx';
@@ -52,12 +53,13 @@ createRoot(document.getElementById('root')).render(
 
             <Route element={<RequireAuth />}>
               <Route path="/profile" element={<Profile />} />
+              <Route path="/my-learning" element={<MyLearning />} /> {/* NEW */}
             </Route>
 
             {/* Course Browse & Landing Pages */}
             <Route path='courses'>
               <Route index element={<Courses />} />
-              <Route path=":courseId" element={<CourseLanding />} /> {/* Public landing */}
+              <Route path=":courseId" element={<CourseLanding />} />
             </Route>
           </Route>
 
@@ -80,8 +82,9 @@ createRoot(document.getElementById('root')).render(
           {/* ================================================= */}
           <Route path="instructor" element={<TeacherOnlyRoute />}>
             <Route element={<ProfessorLayout />}>
-              <Route index element={<h1>Dashboard Instructor</h1>} />
+              <Route index element={<CreatedCourses />} /> {/* Changed from Dashboard to Courses */}
               <Route path="profile" element={<Profile />} />
+              <Route path="statistics" element={<Statistics />} /> {/* NEW */}
               <Route path="create_course" element={<CreateCourse />} />
               <Route path='my_courses' element={<CreatedCourses />} />
 

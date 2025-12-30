@@ -1,4 +1,3 @@
-// client/src/CourseLanding.jsx
 import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { LoggedInContext } from './context/LoggedInContext';
@@ -18,7 +17,7 @@ import PersonIcon from '@mui/icons-material/Person';
 export default function CourseLanding() {
     const { courseId } = useParams();
     const navigate = useNavigate();
-    const { isLogged, userData, showAlert } = useContext(LoggedInContext);
+    const { isLogged, showAlert } = useContext(LoggedInContext);
 
     const [course, setCourse] = useState(null);
     const [chapters, setChapters] = useState([]);
@@ -35,7 +34,6 @@ export default function CourseLanding() {
         .then(([courseData, chaptersData, enrollmentData]) => {
             setCourse(courseData);
             
-            // Load lessons for each chapter
             const chapterPromises = chaptersData.map(chapter =>
                 fetch(`/api/chapters/${chapter.id}/lessons`).then(r => r.json())
                     .then(lessons => ({ ...chapter, lessons }))
@@ -62,10 +60,7 @@ export default function CourseLanding() {
             return;
         }
 
-        if (userData?.type === 'professor') {
-            showAlert("Professors cannot enroll in courses", "warning");
-            return;
-        }
+        // REMOVED PROFESSOR RESTRICTION - Professors can now enroll too!
 
         setIsEnrolling(true);
         try {
@@ -82,7 +77,6 @@ export default function CourseLanding() {
             setIsEnrolled(true);
             showAlert("Successfully enrolled! Starting course...", "success");
             
-            // Navigate to first lesson
             if (chapters.length > 0 && chapters[0].lessons?.length > 0) {
                 const firstLessonId = chapters[0].lessons[0].id;
                 navigate(`/course/${courseId}/learn/lesson/${firstLessonId}`);
@@ -103,7 +97,7 @@ export default function CourseLanding() {
     };
 
     const totalLessons = chapters.reduce((sum, ch) => sum + (ch.lessons?.length || 0), 0);
-    const totalDuration = "4 hours"; // You can calculate this from video durations
+    const totalDuration = "4 hours";
 
     if (isLoading) {
         return (
@@ -126,7 +120,6 @@ export default function CourseLanding() {
     const difficultyColor = 
         course.dificultate === "usor" ? "success" : 
         course.dificultate === "mediu" ? "warning" : "error";
-
 
     return (
         <Box sx={{ bgcolor: 'background.default', minHeight: '100vh' }}>
@@ -208,7 +201,6 @@ export default function CourseLanding() {
             {/* Course Content */}
             <Container maxWidth="lg" sx={{ py: 6 }}>
                 <Grid container spacing={4}>
-                    {/* Main Content */}
                     <Grid item xs={12} md={8}>
                         <Typography variant="h5" fontWeight="bold" gutterBottom>
                             What You'll Learn
@@ -272,7 +264,6 @@ export default function CourseLanding() {
                         </Box>
                     </Grid>
 
-                    {/* Sidebar */}
                     <Grid item xs={12} md={4}>
                         <Paper elevation={2} sx={{ p: 3, position: 'sticky', top: 20 }}>
                             <Typography variant="h6" fontWeight="bold" gutterBottom>

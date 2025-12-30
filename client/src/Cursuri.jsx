@@ -1,43 +1,49 @@
 import React, { useState, useEffect } from "react";
 import CourseCard from "./CourseCard";
+import { useContext } from "react";
+import { LoggedInContext } from "./context/LoggedInContext";
 
 // MUI Imports
-import Container from '@mui/material/Container';
-import Grid from '@mui/material/Grid';
-import Typography from '@mui/material/Typography';
-import CircularProgress from '@mui/material/CircularProgress';
-import Alert from '@mui/material/Alert';
-import Box from '@mui/material/Box';
-import Divider from '@mui/material/Divider';
+import {
+    Container, Grid, Typography, CircularProgress, Alert, Box, Divider,
+    TextField, InputAdornment, Paper
+} from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
 
 export default function Courses() {
     const [courses, setCourses] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const [searchQuery, setSearchQuery] = useState("");
+    const { showAlert } = useContext(LoggedInContext);
 
     useEffect(() => {
         setLoading(true);
-        // Note: Added "/" to start of path for reliability
-        fetch("/api/courses")
+        
+        // Build URL with search param if exists
+        const url = searchQuery 
+            ? `/api/courses?search=${encodeURIComponent(searchQuery)}`
+            : `/api/courses`;
+
+        fetch(url)
             .then(async res => {
-                if (!res.ok) {
-                    throw new Error("Could not load courses");
-                }
+                if (!res.ok) throw new Error("Could not load courses");
                 return res.json();
             })
             .then(data => {
-                // Ensure data is an array before setting
                 setCourses(Array.isArray(data) ? data : []);
                 setLoading(false);
             })
             .catch(err => {
                 console.error("Fetch error:", err);
-                setError("Failed to load available courses. Please try again later.");
+                showAlert("Failed to load courses. Please try again later.", "error");
                 setLoading(false);
             });
-    }, []);
+    }, [searchQuery]); // Re-fetch when searchQuery changes
 
-    console.log(courses)
+    // Debounce helper to avoid too many API calls while typing
+    const handleSearchChange = (e) => {
+        setSearchQuery(e.target.value);
+    };
 
     return (
         <Container maxWidth="lg" sx={{ py: 4, minHeight: '60vh' }}>
@@ -51,33 +57,52 @@ export default function Courses() {
                 <Divider sx={{ mt: 2, maxWidth: 100, mx: 'auto', bgcolor: 'primary.main', borderBottomWidth: 3 }} />
             </Box>
 
+            {/* Search Bar */}
+            <Paper elevation={2} sx={{ p: 2, mb: 4, maxWidth: 600, mx: 'auto' }}>
+                <TextField
+                    fullWidth
+                    placeholder="Search courses by name or description..."
+                    value={searchQuery}
+                    onChange={handleSearchChange}
+                    variant="outlined"
+                    InputProps={{
+                        startAdornment: (
+                            <InputAdornment position="start">
+                                <SearchIcon color="action" />
+                            </InputAdornment>
+                        ),
+                    }}
+                />
+            </Paper>
+
             {loading && (
                 <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
                     <CircularProgress size={60} thickness={4} />
                 </Box>
             )}
 
-            {error && (
-                <Alert severity="error" sx={{ mx: 'auto', maxWidth: 600 }}>
-                    {error}
-                </Alert>
-            )}
-
-            {!loading && !error && (
+            {!loading && (
                 <>
                     {courses.length > 0 ? (
-                        <Grid container spacing={3}>
-                            {courses.map((curs, index) => ( curs.is_published === 1 &&
-                                <Grid item key={index} xs={12} sm={6} md={4}>
-                                    <CourseCard curs={curs} />
-                                </Grid>
-                            ))}
-                        </Grid>
+                        <>
+                            <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 2 }}>
+                                {searchQuery ? `Found ${courses.length} result(s) for "${searchQuery}"` : `${courses.length} courses available`}
+                            </Typography>
+                            <Grid container spacing={3}>
+                                {courses.map((curs, index) => (
+                                    <Grid item key={index} xs={12} sm={6} md={4}>
+                                        <CourseCard curs={curs} />
+                                    </Grid>
+                                ))}
+                            </Grid>
+                        </>
                     ) : (
-                        /* Empty State */
                         <Box sx={{ textAlign: 'center', mt: 5 }}>
                             <Typography variant="h6" color="text.secondary">
-                                No courses are currently available.
+                                {searchQuery 
+                                    ? `No courses found for "${searchQuery}"`
+                                    : "No courses are currently available."
+                                }
                             </Typography>
                         </Box>
                     )}

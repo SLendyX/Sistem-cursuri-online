@@ -7,7 +7,7 @@ import NavSkeleton from "./NavSkeleton";
 
 export default function () {
   const linkArray = ["courses", "about", "login"];
-  const linkText = ["explore course list", "learn more", "login"];
+  const linkText = ["explore courses", "about", "login"];
 
   const [anchorElUser, setAnchorElUser] = React.useState(null);
 
@@ -28,7 +28,7 @@ export default function () {
         position="static"
         color="transparent"
         className="navbar-container">
-        <Container maxWidth={false}  >
+        <Container maxWidth={false}>
           <Toolbar className="navbar">
             <NavLink to="/" className="nav-logo">
               <Typography variant="h4">
@@ -42,7 +42,7 @@ export default function () {
               spacing={1}
               divider={<Divider orientation="vertical" flexItem />}
             >
-              {isLoading ? <NavSkeleton/> : linkArray.map((link, index) => {
+              {isLoading ? <NavSkeleton /> : linkArray.map((link, index) => {
                 if (link === "login" && isLogged) return null;
 
                 return (
@@ -85,14 +85,17 @@ export default function () {
                       onClose={handleCloseUserMenu}
                     >
                       <MenuItem onClick={handleCloseUserMenu}>
-                        <NavLink to={`${userData?.type === 'professor' ? "/instructor" : ""}/profile`} className="dropdown-item"
-                        >
+                        <NavLink to={`${userData?.type === 'professor' ? "/instructor" : ""}/profile`} className="dropdown-item">
                           My Account
                         </NavLink>
                       </MenuItem>
 
+                      {/* UPDATED - Now links to /my-learning for students */}
                       <MenuItem onClick={handleCloseUserMenu}>
-                        <NavLink to="/" className="dropdown-item">
+                        <NavLink 
+                          to={userData?.type === 'professor' ? "/instructor/my_courses" : "/my-learning"} 
+                          className="dropdown-item"
+                        >
                           My Courses
                         </NavLink>
                       </MenuItem>
@@ -100,15 +103,13 @@ export default function () {
                       {userData?.type === 'professor' && (
                         <MenuItem onClick={handleCloseUserMenu}>
                           <NavLink to="/instructor" className="dropdown-item">
-                            Modul Profesor
+                            Instructor Panel
                           </NavLink>
-
                         </MenuItem>
                       )}
 
                       <MenuItem onClick={handleCloseUserMenu}>
-                        <button onClick={logOut} className="dropdown-item 
-                          logout-link">
+                        <button onClick={logOut} className="dropdown-item logout-link">
                           Logout
                         </button>
                       </MenuItem>
