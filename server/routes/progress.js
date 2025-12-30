@@ -72,7 +72,7 @@ router.post("/progress/lesson/:lessonId", async (req, res) => {
                 [userId, lessonId]
             );
         } else {
-            // Mark as incomplete
+            // Mark as incomplete (keeps row for tracking, just sets flag to 0)
             await conn.query(
                 `UPDATE lesson_progress 
                  SET is_completed = 0, completed_at = NULL
@@ -81,18 +81,18 @@ router.post("/progress/lesson/:lessonId", async (req, res) => {
             );
         }
 
-        // Update enrollment progress percentage
+        // FIXED: Update enrollment progress percentage with proper BigInt handling
         await updateCourseProgress(conn, userId, lessonId);
 
         conn.release();
         res.json({ message: "Progress updated" });
     } catch (err) {
-        console.error(err);
+        console.error("Error updating lesson progress:", err);
         res.status(500).json({ error: "Failed to update progress" });
     }
 });
 
-// Helper function to recalculate and update course progress
+// FIXED: Helper function with proper BigInt handling and better error logging
 async function updateCourseProgress(conn, userId, lessonId) {
     try {
         // Get course ID from lesson
@@ -104,45 +104,65 @@ async function updateCourseProgress(conn, userId, lessonId) {
             [lessonId]
         );
 
-        if (!lesson) return;
+        if (!lesson) {
+            console.error("Lesson not found for progress update:", lessonId);
+            return;
+        }
 
         const courseId = lesson.curs_id;
 
-        // Calculate progress
-        const [stats] = await conn.query(
+        // Calculate progress - FIXED: Proper BigInt handling
+        const stats = await conn.query(
             `SELECT 
+                COUNT(CASE WHEN lp.is_completed = 1 THEN 1 END) as completed,
                 (SELECT COUNT(*) 
-                 FROM lesson_progress lp
-                 JOIN lesson l ON lp.lesson_id = l.id
-                 JOIN chapter ch ON l.chapter_id = ch.id
-                 WHERE ch.curs_id = ? AND lp.user_id = ? AND lp.is_completed = 1
-                ) as completed,
-                (SELECT COUNT(*)
-                 FROM lesson l
-                 JOIN chapter ch ON l.chapter_id = ch.id
-                 WHERE ch.curs_id = ?
-                ) as total`,
+                 FROM lesson l2
+                 JOIN chapter ch2 ON l2.chapter_id = ch2.id
+                 WHERE ch2.curs_id = ?
+                ) as total
+             FROM lesson l
+             JOIN chapter ch ON l.chapter_id = ch.id
+             LEFT JOIN lesson_progress lp ON lp.lesson_id = l.id AND lp.user_id = ?
+             WHERE ch.curs_id = ?`,
             [courseId, userId, courseId]
         );
 
-        const progressPercent = stats.total > 0
-            ? Math.round((stats.completed / stats.total) * 100)
+        if (!stats || stats.length === 0) {
+            console.error("No stats returned for course:", courseId);
+            return;
+        }
+
+        // CRITICAL FIX: Convert BigInt to Number before calculation
+        const completed = Number(stats[0].completed || 0);
+        const total = Number(stats[0].total || 0);
+
+        console.log(`Progress Update - Course ${courseId}, User ${userId}: ${completed}/${total} lessons`);
+
+        const progressPercent = total > 0
+            ? Math.round((completed / total) * 100)
             : 0;
 
         // Update enrollment table
-        await conn.query(
+        const result = await conn.query(
             `UPDATE enrollment 
              SET progress_percentage = ?
              WHERE user_id = ? AND course_id = ?`,
             [progressPercent, userId, courseId]
         );
 
+        console.log(`Progress updated to ${progressPercent}% for user ${userId} in course ${courseId}`);
+
+        if (result.affectedRows === 0) {
+            console.warn(`No enrollment found for user ${userId} in course ${courseId}`);
+        }
+
     } catch (err) {
         console.error("Failed to update course progress:", err);
+        // Don't throw - let the lesson progress update succeed even if this fails
     }
 }
 
-// GET /api/enrollments - Get user's enrolled courses WITH CALCULATED PROGRESS
+// GET /api/enrollments - Get user's enrolled courses WITH PROPER PROGRESS FROM DATABASE
 router.get("/enrollments", async (req, res) => {
     const userId = verifyToken(req);
     if (!userId) return res.status(401).json({ error: "Not authenticated" });
@@ -157,20 +177,16 @@ router.get("/enrollments", async (req, res) => {
                 c.thumbnail_url,
                 c.dificultate,
                 u.name as instructor_name,
-                COALESCE(
-                    (SELECT COUNT(*) 
-                     FROM lesson_progress lp
-                     JOIN lesson l ON lp.lesson_id = l.id
-                     JOIN chapter ch ON l.chapter_id = ch.id
-                     WHERE ch.curs_id = e.course_id AND lp.user_id = e.user_id AND lp.is_completed = 1
-                    ), 0
+                (SELECT COUNT(*) 
+                 FROM lesson_progress lp
+                 JOIN lesson l ON lp.lesson_id = l.id
+                 JOIN chapter ch ON l.chapter_id = ch.id
+                 WHERE ch.curs_id = e.course_id AND lp.user_id = e.user_id AND lp.is_completed = 1
                 ) as completed_lessons,
-                COALESCE(
-                    (SELECT COUNT(*)
-                     FROM lesson l
-                     JOIN chapter ch ON l.chapter_id = ch.id
-                     WHERE ch.curs_id = e.course_id
-                    ), 0
+                (SELECT COUNT(*)
+                 FROM lesson l
+                 JOIN chapter ch ON l.chapter_id = ch.id
+                 WHERE ch.curs_id = e.course_id
                 ) as total_lessons
              FROM enrollment e
              JOIN curs c ON e.course_id = c.curs_id
@@ -180,25 +196,14 @@ router.get("/enrollments", async (req, res) => {
             [userId]
         );
 
-        // Calculate progress percentage dynamically
-        const enrichedEnrollments = enrollments.map(enrollment => {
-            // 1. Convert BigInts to standard Numbers immediately
-            const completed = Number(enrollment.completed_lessons);
-            const total = Number(enrollment.total_lessons);
-
-            // 2. Perform math using the standard Numbers
-            const progress = total > 0
-                ? Math.round((completed / total) * 100)
-                : 0;
-
-            return {
-                ...enrollment,
-                // 3. Return the clean numbers (so JSON.stringify doesn't break later)
-                completed_lessons: completed,
-                total_lessons: total,
-                progress_percentage: progress
-            };
-        });
+        // FIXED: Use database progress_percentage, only recalculate for display counts
+        const enrichedEnrollments = enrollments.map(enrollment => ({
+            ...enrollment,
+            completed_lessons: Number(enrollment.completed_lessons || 0),
+            total_lessons: Number(enrollment.total_lessons || 0),
+            // Use the database value, not recalculated
+            progress_percentage: Number(enrollment.progress_percentage || 0)
+        }));
 
         conn.release();
         res.json(enrichedEnrollments);

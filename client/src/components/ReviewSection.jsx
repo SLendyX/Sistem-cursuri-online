@@ -3,9 +3,10 @@ import React, { useState, useEffect, useContext } from 'react';
 import { LoggedInContext } from '../context/LoggedInContext';
 import {
     Box, Paper, Typography, Rating, TextField, Button, Avatar,
-    Stack, Divider, Alert, CircularProgress
+    Stack, Divider, Alert, CircularProgress, Chip
 } from '@mui/material';
-import StarIcon from '@mui/icons-material/Star';
+import EditIcon from '@mui/icons-material/Edit';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 export default function ReviewSection({ courseId, isEnrolled }) {
     const { isLogged, userData, showAlert } = useContext(LoggedInContext);
@@ -13,6 +14,10 @@ export default function ReviewSection({ courseId, isEnrolled }) {
     const [averageRating, setAverageRating] = useState(0);
     const [totalReviews, setTotalReviews] = useState(0);
     const [loading, setLoading] = useState(true);
+    
+    // User's own review state
+    const [userReview, setUserReview] = useState(null);
+    const [isEditing, setIsEditing] = useState(false);
     
     // Review form
     const [userRating, setUserRating] = useState(0);
@@ -28,9 +33,27 @@ export default function ReviewSection({ courseId, isEnrolled }) {
             const res = await fetch(`/api/courses/${courseId}/reviews`);
             const data = await res.json();
             
-            setReviews(data.reviews || []);
-            setAverageRating(data.averageRating || 0);
-            setTotalReviews(data.totalReviews || 0);
+            // FIXED: Ensure we convert to Number (handles BigInt, null, undefined)
+            setAverageRating(Number(data.averageRating) || 0);
+            setTotalReviews(Number(data.totalReviews) || 0);
+            
+            // Separate user's review from others
+            if (isLogged && userData?.userId) {
+                const myReview = data.reviews.find(r => r.user_id === userData.userId);
+                const otherReviews = data.reviews.filter(r => r.user_id !== userData.userId);
+                
+                setUserReview(myReview || null);
+                setReviews(otherReviews);
+                
+                // Pre-fill form with existing review
+                if (myReview && !isEditing) {
+                    setUserRating(Number(myReview.rating));
+                    setUserComment(myReview.comment || '');
+                }
+            } else {
+                setReviews(data.reviews || []);
+            }
+            
             setLoading(false);
         } catch (err) {
             console.error(err);
@@ -55,14 +78,35 @@ export default function ReviewSection({ courseId, isEnrolled }) {
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
 
-            showAlert("Review submitted successfully!", "success");
-            setUserRating(0);
-            setUserComment('');
-            fetchReviews(); // Refresh reviews
+            showAlert(
+                userReview ? "Review updated successfully!" : "Review submitted successfully!", 
+                "success"
+            );
+            setIsEditing(false);
+            fetchReviews(); // Refresh to show updated review
         } catch (err) {
             showAlert(err.message, "error");
         } finally {
             setIsSubmitting(false);
+        }
+    };
+
+    const handleEditReview = () => {
+        setIsEditing(true);
+        if (userReview) {
+            setUserRating(Number(userReview.rating));
+            setUserComment(userReview.comment || '');
+        }
+    };
+
+    const handleCancelEdit = () => {
+        setIsEditing(false);
+        if (userReview) {
+            setUserRating(Number(userReview.rating));
+            setUserComment(userReview.comment || '');
+        } else {
+            setUserRating(0);
+            setUserComment('');
         }
     };
 
@@ -74,13 +118,18 @@ export default function ReviewSection({ courseId, isEnrolled }) {
         );
     }
 
+    // FIXED: Safely format averageRating
+    const formattedRating = typeof averageRating === 'number' 
+        ? averageRating.toFixed(1) 
+        : '0.0';
+
     return (
         <Box>
             {/* Reviews Summary */}
             <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
                 <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
                     <Typography variant="h4" fontWeight="bold">
-                        {averageRating.toFixed(1)}
+                        {formattedRating}
                     </Typography>
                     <Box>
                         <Rating value={averageRating} precision={0.1} readOnly size="large" />
@@ -91,11 +140,46 @@ export default function ReviewSection({ courseId, isEnrolled }) {
                 </Stack>
             </Paper>
 
-            {/* Review Form (only for enrolled students) */}
-            {isLogged && isEnrolled && (
+            {/* User's Own Review (if exists) - Display Mode */}
+            {isLogged && isEnrolled && userReview && !isEditing && (
+                <Paper elevation={2} sx={{ p: 3, mb: 3, bgcolor: 'primary.50', border: 2, borderColor: 'primary.main' }}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="h6" fontWeight="bold">
+                                Your Review
+                            </Typography>
+                            <Chip 
+                                icon={<CheckCircleIcon />} 
+                                label="Published" 
+                                color="success" 
+                                size="small" 
+                            />
+                        </Box>
+                        <Button 
+                            startIcon={<EditIcon />}
+                            onClick={handleEditReview}
+                            size="small"
+                        >
+                            Edit Review
+                        </Button>
+                    </Stack>
+                    <Rating value={Number(userReview.rating)} readOnly size="large" sx={{ mb: 2 }} />
+                    {userReview.comment && (
+                        <Typography variant="body1" color="text.secondary">
+                            {userReview.comment}
+                        </Typography>
+                    )}
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
+                        Posted on {new Date(userReview.created_at).toLocaleDateString()}
+                    </Typography>
+                </Paper>
+            )}
+
+            {/* Review Form (only for enrolled students without review OR when editing) */}
+            {isLogged && isEnrolled && (!userReview || isEditing) && (
                 <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
                     <Typography variant="h6" gutterBottom>
-                        Leave a Review
+                        {userReview ? 'Edit Your Review' : 'Leave a Review'}
                     </Typography>
                     <Stack spacing={2}>
                         <Box>
@@ -116,20 +200,37 @@ export default function ReviewSection({ courseId, isEnrolled }) {
                             onChange={(e) => setUserComment(e.target.value)}
                             placeholder="Share your thoughts about this course..."
                         />
-                        <Button
-                            variant="contained"
-                            onClick={handleSubmitReview}
-                            disabled={isSubmitting || !userRating}
-                        >
-                            {isSubmitting ? "Submitting..." : "Submit Review"}
-                        </Button>
+                        <Stack direction="row" spacing={2}>
+                            <Button
+                                variant="contained"
+                                onClick={handleSubmitReview}
+                                disabled={isSubmitting || !userRating}
+                                fullWidth
+                            >
+                                {isSubmitting 
+                                    ? "Submitting..." 
+                                    : userReview 
+                                        ? "Update Review" 
+                                        : "Submit Review"
+                                }
+                            </Button>
+                            {userReview && isEditing && (
+                                <Button
+                                    variant="outlined"
+                                    onClick={handleCancelEdit}
+                                    disabled={isSubmitting}
+                                >
+                                    Cancel
+                                </Button>
+                            )}
+                        </Stack>
                     </Stack>
                 </Paper>
             )}
 
-            {/* Reviews List */}
+            {/* Other Students' Reviews */}
             <Typography variant="h5" fontWeight="bold" gutterBottom>
-                Student Reviews
+                {reviews.length > 0 ? 'Other Student Reviews' : 'Student Reviews'}
             </Typography>
 
             {reviews.length > 0 ? (
@@ -149,7 +250,7 @@ export default function ReviewSection({ courseId, isEnrolled }) {
                                             {new Date(review.created_at).toLocaleDateString()}
                                         </Typography>
                                     </Stack>
-                                    <Rating value={review.rating} readOnly size="small" sx={{ mb: 1 }} />
+                                    <Rating value={Number(review.rating)} readOnly size="small" sx={{ mb: 1 }} />
                                     {review.comment && (
                                         <Typography variant="body2" color="text.secondary">
                                             {review.comment}
@@ -162,7 +263,10 @@ export default function ReviewSection({ courseId, isEnrolled }) {
                 </Stack>
             ) : (
                 <Alert severity="info">
-                    No reviews yet. Be the first to review this course!
+                    {userReview 
+                        ? "Be the first to share your thoughts with other students!"
+                        : "No reviews yet. Be the first to review this course!"
+                    }
                 </Alert>
             )}
         </Box>

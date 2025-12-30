@@ -14,8 +14,8 @@ const router = express.Router();
 router.use(express.json());
 router.use(cookieParser());
 
-BigInt.prototype.toJSON = function() {       
-  return Number(this); // Or return this.toString() if the numbers are truly massive
+BigInt.prototype.toJSON = function () {
+    return Number(this); // Or return this.toString() if the numbers are truly massive
 }
 
 // --- Multer Configuration ---
@@ -58,7 +58,7 @@ router.get("/courses", async (req, res) => {
 
     try {
         const conn = await pool.getConnection();
-        
+
         let query = `SELECT c.*, u.name FROM curs AS c 
                      JOIN user AS u ON c.autor_id = u.id 
                      WHERE c.is_published = 1`;
@@ -77,7 +77,7 @@ router.get("/courses", async (req, res) => {
         }
 
         // Sorting
-        switch(sortBy) {
+        switch (sortBy) {
             case 'price_asc':
                 query += ` ORDER BY c.pret ASC`;
                 break;
@@ -110,7 +110,7 @@ router.get("/courses/:id", async (req, res) => {
     try {
         const conn = await pool.getConnection();
         const [course] = await conn.query(
-            "SELECT c.*, u.name FROM curs c JOIN user u ON c.autor_id = u.id WHERE c.curs_id = ?", 
+            "SELECT c.*, u.name FROM curs c JOIN user u ON c.autor_id = u.id WHERE c.curs_id = ?",
             [courseId]
         );
         conn.release();
@@ -224,7 +224,7 @@ router.patch("/courses/:id", upload.single('image'), async (req, res) => {
                    category = COALESCE(?, category),
                    pret = COALESCE(?, pret),
                    is_published = COALESCE(?, is_published)`;
-        
+
         const params = [numeCurs, descriere, dificultate, category, pret, isPublished];
 
         if (newImage) {
@@ -243,7 +243,7 @@ router.patch("/courses/:id", upload.single('image'), async (req, res) => {
         console.error(err);
         res.status(500).json({ error: "Failed to update course" });
     }
-}); 
+});
 
 // DELETE /api/courses/:id - Delete course (with cascade)
 router.delete("/courses/:id", async (req, res) => {
@@ -270,9 +270,9 @@ router.delete("/courses/:id", async (req, res) => {
         const enrollments = await conn.query("SELECT COUNT(*) as count FROM enrollment WHERE course_id = ?", [courseId]);
         if (enrollments[0].count > 0) {
             conn.release();
-            return res.status(400).json({ 
+            return res.status(400).json({
                 error: `Cannot delete course with ${enrollments[0].count} enrolled student(s)`,
-                hasStudents: true 
+                hasStudents: true
             });
         }
 
@@ -595,9 +595,9 @@ router.get("/instructor/statistics", async (req, res) => {
         );
 
         // Find most popular course
-        const mostPopular = courses.reduce((max, course) => 
+        const mostPopular = courses.reduce((max, course) =>
             course.studenti_inrolati > (max.studenti_inrolati || 0) ? course : max
-        , {});
+            , {});
 
         conn.release();
 
@@ -626,7 +626,7 @@ router.get("/courses/:id/reviews", async (req, res) => {
 
     try {
         const conn = await pool.getConnection();
-        
+
         const reviews = await conn.query(
             `SELECT r.*, u.name, u.username 
              FROM reviews r
@@ -715,7 +715,7 @@ router.post("/courses/:id/reviews", async (req, res) => {
 
         await conn.query(
             "UPDATE curs SET rating = ? WHERE curs_id = ?",
-            [avgRating.avg || 0, courseId]
+            [Number(avgRating.avg || 0), courseId]  // ← ADD Number() HERE
         );
 
         conn.release();
