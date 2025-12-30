@@ -2,20 +2,24 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useOutletContext } from 'react-router';
 import {
     Box, TextField, Typography, Paper, Stack,
-    CircularProgress, Tooltip, MenuItem, InputAdornment, Button, Card, CardMedia
+    CircularProgress, Tooltip, MenuItem, InputAdornment, Button, Card, CardMedia, 
+    FormControlLabel, Switch
 } from '@mui/material';
 import CloudDoneIcon from '@mui/icons-material/CloudDone';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import { LoggedInContext } from "./context/LoggedInContext";
 
 export default function CourseEditor() {
     const { courseId } = useParams();
-    
+    const { showAlert } = React.useContext(LoggedInContext);
+
     // Data States
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [difficulty, setDifficulty] = useState('usor');
     const [price, setPrice] = useState('');
+    const [isPublished, setIsPublished] = useState(false);
     const [thumbnail, setThumbnail] = useState(null); // URL for preview
     const [selectedFile, setSelectedFile] = useState(null); // File object for upload
 
@@ -24,17 +28,17 @@ export default function CourseEditor() {
     const [lastSaved, setLastSaved] = useState(null);
 
     // Refs for "Exit Save"
-    const dataRef = useRef({ id: courseId, title, description, difficulty, price });
+    const dataRef = useRef({ id: courseId, title, description, difficulty, price, isPublished });
     const isDirtyRef = useRef(false);
 
     useEffect(() => {
-        dataRef.current = { id: courseId, title, description, difficulty, price };
-    }, [title, description, difficulty, price, courseId]);
+        dataRef.current = { id: courseId, title, description, difficulty, price, isPublished };
+    }, [title, description, difficulty, price, courseId, isPublished]);
 
     // 1. LOAD DATA
     useEffect(() => {
         let isMounted = true;
-        
+
         fetch(`/api/courses/${courseId}`)
             .then(async res => {
                 const data = await res.json();
@@ -46,12 +50,13 @@ export default function CourseEditor() {
                     setDifficulty(data.dificultate || "usor");
                     setPrice(data.pret || "");
                     setThumbnail(data.thumbnail_url || "");
-                    
+                    setIsPublished(Boolean(data.is_published));
+
                     isDirtyRef.current = false;
                     setSaveStatus('saved');
                 }
             })
-            .catch(err => console.error("Load failed", err));
+            .catch(err => showAlert("Load failed" + err, "error"));
 
         return () => { isMounted = false; };
     }, [courseId]);
@@ -68,7 +73,8 @@ export default function CourseEditor() {
             formData.append('descriere', data.description);
             formData.append('dificultate', data.difficulty);
             formData.append('pret', data.price);
-            
+            formData.append('isPublished', isPublished ? 1 : 0)
+
             if (fileToUpload) {
                 formData.append('image', fileToUpload);
             }
@@ -80,9 +86,9 @@ export default function CourseEditor() {
             });
 
             const [response] = await Promise.all([fetchPromise, minDelay]);
-            
+
             if (!response.ok) throw new Error("Save failed");
-            
+
             // Update thumbnail preview if server sent back a new URL
             const resData = await response.json();
             if (resData.newImage) setThumbnail(resData.newImage);
@@ -107,7 +113,7 @@ export default function CourseEditor() {
         const timer = setTimeout(() => saveCourse(dataToSave, null), 1500);
 
         return () => clearTimeout(timer);
-    }, [title, description, difficulty, price, courseId, saveCourse]);
+    }, [title, description, difficulty, price, courseId, saveCourse, isPublished]);
 
     // 4. IMMEDIATE SAVE (File Upload)
     const handleFileChange = (e) => {
@@ -206,6 +212,25 @@ export default function CourseEditor() {
                             slotProps={{ input: { startAdornment: <InputAdornment position="start">$</InputAdornment> } }}
                         />
                     </Stack>
+
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={isPublished}
+                                onChange={(e) => setIsPublished(e.target.checked)}
+                                color="primary"
+                            />
+                        }
+                        label={
+                            <Typography>
+                                Published
+                                <Typography component="span" variant="caption" sx={{ ml: 1, color: 'text.secondary' }}>
+                                    (Visible to students)
+                                </Typography>
+                            </Typography>
+                        }
+                    />
+
                 </Stack>
             </Paper>
         </Box>

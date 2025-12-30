@@ -37,6 +37,8 @@ export default function Courses() {
             });
     }, []);
 
+    console.log(courses)
+
     return (
         <Container maxWidth="lg" sx={{ py: 4, minHeight: '60vh' }}>
             <Box sx={{ mb: 5, textAlign: 'center' }}>
@@ -65,7 +67,7 @@ export default function Courses() {
                 <>
                     {courses.length > 0 ? (
                         <Grid container spacing={3}>
-                            {courses.map((curs, index) => (
+                            {courses.map((curs, index) => ( curs.is_published === 1 &&
                                 <Grid item key={index} xs={12} sm={6} md={4}>
                                     <CourseCard curs={curs} />
                                 </Grid>

@@ -511,7 +511,7 @@ router.get("/courses/:id", async (req, res) => {
 // PATCH /api/courses/:id (Supports Image Upload)
 router.patch("/courses/:id", upload.single('image'), async (req, res) => {
     const courseId = req.params.id;
-    const { numeCurs, descriere, dificultate, pret } = req.body;
+    const { numeCurs, descriere, dificultate, pret, isPublished } = req.body;
     
     // If a new file was uploaded, we use it. Otherwise, we ignore this field in SQL.
     const newImage = req.file ? `/images/${req.file.filename}` : null;
@@ -524,9 +524,10 @@ router.patch("/courses/:id", upload.single('image'), async (req, res) => {
                    nume_curs = COALESCE(?, nume_curs),
                    descriere = COALESCE(?, descriere),
                    dificultate = COALESCE(?, dificultate),
-                   pret = COALESCE(?, pret)`;
+                   pret = COALESCE(?, pret),
+                   is_published = COALESCE(?, is_published)`;
         
-        const params = [numeCurs, descriere, dificultate, pret];
+        const params = [numeCurs, descriere, dificultate, pret, isPublished];
 
         if (newImage) {
             sql += `, thumbnail_url = ?`;
