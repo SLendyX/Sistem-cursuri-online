@@ -4,7 +4,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { restrictToVerticalAxis, restrictToParentElement } from '@dnd-kit/modifiers';
-import { LoggedInContext } from "./context/LoggedInContext";
+import { LoggedInContext } from "../context/LoggedInContext";
 
 // MUI Imports
 import {
@@ -288,7 +288,6 @@ export default function CourseEditorLayout() {
                     }}
                 >
                     <Box sx={{ overflow: 'auto', p: 2 }}>
-
                         {/* HEADER */}
                         {isChapterMode ? (
                             // STATE 1: Deep inside a Chapter (Viewing Lesson List)

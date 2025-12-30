@@ -2,12 +2,11 @@ import React from "react";
 import { Outlet } from "react-router";
 import Box from '@mui/material/Box';
 import CssBaseline from '@mui/material/CssBaseline';
+import Container from '@mui/material/Container';
+import Nav from "./NavProfessor";
+import Footer from "../components/Footer";
 
-import Footer from "./Footer";
-import Nav from "./NavStudent";
-import BackTopButton from "./BackTopButton";
-
-export default function StudentLayout() {
+export default function ProfessorLayout() {
     return (
         <>
             <CssBaseline />
@@ -20,21 +19,21 @@ export default function StudentLayout() {
                 }}
             >
                 <Nav />
-                
+
                 <Box 
                     component="main" 
                     sx={{ 
                         flexGrow: 1,
-                        width: '100%',
-                        display: 'flex',
-                        flexDirection: 'column'
+                        py: 3,
+                        px: 2
                     }}
                 >
-                    <Outlet />
+                    <Container maxWidth="xl">
+                        <Outlet />
+                    </Container>
                 </Box>
 
                 <Footer />
-                <BackTopButton />
             </Box>
         </>
     );

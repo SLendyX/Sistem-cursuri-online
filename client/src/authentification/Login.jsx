@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useNavigate } from "react-router"; // or "react-router-dom" depending on your version
-import { LoggedInContext } from './context/LoggedInContext';
+import { LoggedInContext } from '../context/LoggedInContext';
 
 // MUI Imports
 import Avatar from '@mui/material/Avatar';

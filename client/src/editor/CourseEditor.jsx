@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router';
+import Breadcrumbs from '../components/Breadcrumbs';
 import {
     Box, TextField, Typography, Paper, Stack,
-    CircularProgress, Tooltip, MenuItem, InputAdornment, Button, Card, CardMedia, 
+    CircularProgress, Tooltip, MenuItem, InputAdornment, Button, Card, CardMedia,
     FormControlLabel, Switch, Dialog, DialogTitle, DialogContent, DialogActions,
     DialogContentText, Alert
 } from '@mui/material';
@@ -10,7 +11,7 @@ import CloudDoneIcon from '@mui/icons-material/CloudDone';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
-import { LoggedInContext } from "./context/LoggedInContext";
+import { LoggedInContext } from "../context/LoggedInContext";
 
 export default function CourseEditor() {
     const { courseId } = useParams();
@@ -24,12 +25,13 @@ export default function CourseEditor() {
     const [price, setPrice] = useState('');
     const [isPublished, setIsPublished] = useState(false);
     const [thumbnail, setThumbnail] = useState(null);
+    const [category, setCategory] = useState('General');
     const [selectedFile, setSelectedFile] = useState(null);
 
     // UI States
     const [saveStatus, setSaveStatus] = useState('saved');
     const [lastSaved, setLastSaved] = useState(null);
-    
+
     // Delete Dialog States
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -39,8 +41,8 @@ export default function CourseEditor() {
     const isDirtyRef = useRef(false);
 
     useEffect(() => {
-        dataRef.current = { id: courseId, title, description, difficulty, price, isPublished };
-    }, [title, description, difficulty, price, courseId, isPublished]);
+        dataRef.current = { id: courseId, title, description, difficulty, price, isPublished, category };
+    }, [title, description, difficulty, price, courseId, isPublished, category]);
 
     // 1. LOAD DATA
     useEffect(() => {
@@ -58,6 +60,7 @@ export default function CourseEditor() {
                     setPrice(data.pret || "");
                     setThumbnail(data.thumbnail_url || "");
                     setIsPublished(Boolean(data.is_published));
+                    setCategory(data.category || "General");
                     isDirtyRef.current = false;
                     setSaveStatus('saved');
                 }
@@ -79,6 +82,7 @@ export default function CourseEditor() {
             formData.append('dificultate', data.difficulty);
             formData.append('pret', data.price);
             formData.append('isPublished', isPublished ? 1 : 0);
+            formData.append('category', data.category);
 
             if (fileToUpload) {
                 formData.append('image', fileToUpload);
@@ -114,11 +118,11 @@ export default function CourseEditor() {
         if (!title && !isDirtyRef.current) return;
         isDirtyRef.current = true;
 
-        const dataToSave = { id: courseId, title, description, difficulty, price };
+        const dataToSave = { id: courseId, title, description, difficulty, price, category };
         const timer = setTimeout(() => saveCourse(dataToSave, null), 1500);
 
         return () => clearTimeout(timer);
-    }, [title, description, difficulty, price, courseId, saveCourse, isPublished]);
+    }, [title, description, difficulty, price, category, courseId, saveCourse, isPublished]);
 
     // 4. FILE UPLOAD
     const handleFileChange = (e) => {
@@ -176,6 +180,13 @@ export default function CourseEditor() {
 
     return (
         <Box maxWidth="md" mx="auto">
+            <Breadcrumbs
+                customItems={[
+                    { label: 'Instructor Panel', path: '/instructor' },
+                    { label: 'My Courses', path: '/instructor/my_courses' },
+                    { label: title || 'Edit Course', path: '' }
+                ]}
+            />
             {/* Header */}
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}
                 sx={{ bgcolor: 'background.paper', p: 2, borderRadius: 2, boxShadow: 1 }}>
@@ -250,6 +261,24 @@ export default function CourseEditor() {
                         />
                     </Stack>
 
+                    <TextField
+                        select
+                        label="Category"
+                        fullWidth
+                        value={category}
+                        onChange={(e) => setCategory(e.target.value)}
+                    >
+                        <MenuItem value="Programming">Programming</MenuItem>
+                        <MenuItem value="Design">Design</MenuItem>
+                        <MenuItem value="Business">Business</MenuItem>
+                        <MenuItem value="Marketing">Marketing</MenuItem>
+                        <MenuItem value="Photography">Photography</MenuItem>
+                        <MenuItem value="Music">Music</MenuItem>
+                        <MenuItem value="Language">Language</MenuItem>
+                        <MenuItem value="Health & Fitness">Health & Fitness</MenuItem>
+                        <MenuItem value="General">General</MenuItem>
+                    </TextField>
+
                     <FormControlLabel
                         control={
                             <Switch
@@ -314,9 +343,9 @@ export default function CourseEditor() {
                     <Button onClick={() => setDeleteDialogOpen(false)} disabled={isDeleting}>
                         Cancel
                     </Button>
-                    <Button 
-                        onClick={handleDeleteCourse} 
-                        color="error" 
+                    <Button
+                        onClick={handleDeleteCourse}
+                        color="error"
                         variant="contained"
                         disabled={isDeleting || deleteConfirmText !== title}
                     >

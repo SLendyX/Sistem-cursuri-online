@@ -1,12 +1,14 @@
+// client/src/MyLearning.jsx
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router';
-import { LoggedInContext } from './context/LoggedInContext';
+import { LoggedInContext } from '../context/LoggedInContext';
 import {
     Container, Typography, Box, Grid, Card, CardMedia, CardContent,
     CircularProgress, Chip, Button, LinearProgress, Divider
 } from '@mui/material';
 import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
 import SchoolIcon from '@mui/icons-material/School';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 export default function MyLearning() {
     const navigate = useNavigate();
@@ -62,6 +64,7 @@ export default function MyLearning() {
                         const difficultyColor = 
                             enrollment.dificultate === "usor" ? "success" : 
                             enrollment.dificultate === "mediu" ? "warning" : "error";
+                        const isCompleted = progress === 100;
 
                         return (
                             <Grid item key={enrollment.course_id} xs={12} sm={6} md={4}>
@@ -71,9 +74,26 @@ export default function MyLearning() {
                                         display: 'flex', 
                                         flexDirection: 'column',
                                         transition: '0.3s',
+                                        position: 'relative',
                                         '&:hover': { transform: 'translateY(-5px)', boxShadow: 6 }
                                     }}
                                 >
+                                    {isCompleted && (
+                                        <Chip
+                                            icon={<CheckCircleIcon />}
+                                            label="Completed"
+                                            color="success"
+                                            size="small"
+                                            sx={{
+                                                position: 'absolute',
+                                                top: 10,
+                                                right: 10,
+                                                zIndex: 1,
+                                                fontWeight: 'bold'
+                                            }}
+                                        />
+                                    )}
+
                                     <CardMedia
                                         component="img"
                                         height="140"
@@ -98,13 +118,25 @@ export default function MyLearning() {
                                             by {enrollment.instructor_name}
                                         </Typography>
 
+                                        <Typography variant="caption" color="text.secondary" sx={{ mb: 1 }}>
+                                            {enrollment.completed_lessons || 0} of {enrollment.total_lessons || 0} lessons completed
+                                        </Typography>
+
                                         {/* Progress Bar */}
                                         <Box sx={{ mt: 'auto' }}>
                                             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                                                 <LinearProgress 
                                                     variant="determinate" 
                                                     value={progress} 
-                                                    sx={{ flex: 1, height: 8, borderRadius: 1 }}
+                                                    sx={{ 
+                                                        flex: 1, 
+                                                        height: 8, 
+                                                        borderRadius: 1,
+                                                        bgcolor: 'grey.200',
+                                                        '& .MuiLinearProgress-bar': {
+                                                            bgcolor: isCompleted ? 'success.main' : 'primary.main'
+                                                        }
+                                                    }}
                                                 />
                                                 <Typography variant="caption" fontWeight="bold" sx={{ ml: 1 }}>
                                                     {progress}%
@@ -112,13 +144,13 @@ export default function MyLearning() {
                                             </Box>
 
                                             <Button
-                                                variant="contained"
+                                                variant={isCompleted ? "outlined" : "contained"}
                                                 fullWidth
                                                 startIcon={<PlayCircleOutlineIcon />}
                                                 onClick={() => handleContinue(enrollment.course_id)}
                                                 sx={{ mt: 2 }}
                                             >
-                                                {progress > 0 ? "Continue Learning" : "Start Course"}
+                                                {isCompleted ? "Review Course" : progress > 0 ? "Continue Learning" : "Start Course"}
                                             </Button>
                                         </Box>
                                     </CardContent>

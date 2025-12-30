@@ -12,7 +12,7 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
-import LessonPreview from './LessonPreview';
+import LessonPreview from '../student_experience/LessonPreview';
 
 export default function LessonEditor() {
     const { lessonId } = useParams();

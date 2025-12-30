@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import CourseCard from "./CourseCard";
+import CourseCard from "../course_componenents/CourseCard";
 
 // MUI Imports
 import {

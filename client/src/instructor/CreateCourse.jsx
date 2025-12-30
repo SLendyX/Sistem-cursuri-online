@@ -1,6 +1,6 @@
 import React, { useState, useContext } from "react";
 import { useNavigate } from "react-router";
-import { LoggedInContext } from "./context/LoggedInContext"; // Adjust path if needed
+import { LoggedInContext } from "../context/LoggedInContext"; // Adjust path if needed
 
 // MUI Imports
 import {
@@ -31,7 +31,8 @@ export default function CreateCourse() {
         numeCurs: "",
         desc: "",
         dificultate: "usor",
-        pret: ""
+        pret: "",
+        category: "General" // Adaugă
     });
 
     const [imageFile, setImageFile] = useState(null);
@@ -88,6 +89,7 @@ export default function CreateCourse() {
         data.append("descriere", formData.desc);
         data.append("dificultate", formData.dificultate);
         data.append("pret", formData.pret);
+        data.append("category", formData.category);
         if (imageFile) data.append("image", imageFile);
 
         fetch("/api/courses", {
@@ -181,6 +183,25 @@ export default function CreateCourse() {
                                 />
                             </Grid>
                         </Grid>
+
+                        <TextField
+                            select
+                            label="Category"
+                            name="category"
+                            value={formData.category}
+                            onChange={handleChange}
+                            fullWidth
+                        >
+                            <MenuItem value="Programming">Programming</MenuItem>
+                            <MenuItem value="Design">Design</MenuItem>
+                            <MenuItem value="Business">Business</MenuItem>
+                            <MenuItem value="Marketing">Marketing</MenuItem>
+                            <MenuItem value="Photography">Photography</MenuItem>
+                            <MenuItem value="Music">Music</MenuItem>
+                            <MenuItem value="Language">Language</MenuItem>
+                            <MenuItem value="Health & Fitness">Health & Fitness</MenuItem>
+                            <MenuItem value="General">General</MenuItem>
+                        </TextField>
 
                         {/* --- Custom Image Drop Zone --- */}
                         <Box

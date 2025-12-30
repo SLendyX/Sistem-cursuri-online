@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import { LoggedInContext } from './context/LoggedInContext';
+import { LoggedInContext } from '../context/LoggedInContext';
 import {
     Container, Box, Typography, Button, Paper, Grid, Chip, Avatar,
     List, ListItem, ListItemIcon, ListItemText, Divider, Card, CardMedia,
@@ -13,11 +13,13 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SchoolIcon from '@mui/icons-material/School';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import PersonIcon from '@mui/icons-material/Person';
+import ReviewSection from '../components/ReviewSection';
+import Breadcrumbs from '../components/Breadcrumbs';
 
 export default function CourseLanding() {
     const { courseId } = useParams();
     const navigate = useNavigate();
-    const { isLogged, showAlert } = useContext(LoggedInContext);
+    const { isLogged, showAlert, userData } = useContext(LoggedInContext);
 
     const [course, setCourse] = useState(null);
     const [chapters, setChapters] = useState([]);
@@ -31,26 +33,26 @@ export default function CourseLanding() {
             fetch(`/api/courses/${courseId}/chapters`).then(r => r.json()),
             isLogged ? fetch(`/api/check-enrollment/${courseId}`).then(r => r.json()) : Promise.resolve({ isEnrolled: false })
         ])
-        .then(([courseData, chaptersData, enrollmentData]) => {
-            setCourse(courseData);
-            
-            const chapterPromises = chaptersData.map(chapter =>
-                fetch(`/api/chapters/${chapter.id}/lessons`).then(r => r.json())
-                    .then(lessons => ({ ...chapter, lessons }))
-            );
-            
-            return Promise.all([Promise.all(chapterPromises), enrollmentData]);
-        })
-        .then(([chaptersWithLessons, enrollmentData]) => {
-            setChapters(chaptersWithLessons);
-            setIsEnrolled(enrollmentData.isEnrolled);
-            setIsLoading(false);
-        })
-        .catch(err => {
-            console.error(err);
-            showAlert("Failed to load course", "error");
-            setIsLoading(false);
-        });
+            .then(([courseData, chaptersData, enrollmentData]) => {
+                setCourse(courseData);
+
+                const chapterPromises = chaptersData.map(chapter =>
+                    fetch(`/api/chapters/${chapter.id}/lessons`).then(r => r.json())
+                        .then(lessons => ({ ...chapter, lessons }))
+                );
+
+                return Promise.all([Promise.all(chapterPromises), enrollmentData]);
+            })
+            .then(([chaptersWithLessons, enrollmentData]) => {
+                setChapters(chaptersWithLessons);
+                setIsEnrolled(enrollmentData.isEnrolled);
+                setIsLoading(false);
+            })
+            .catch(err => {
+                console.error(err);
+                showAlert("Failed to load course", "error");
+                setIsLoading(false);
+            });
     }, [courseId, isLogged]);
 
     const handleEnroll = async () => {
@@ -76,7 +78,7 @@ export default function CourseLanding() {
 
             setIsEnrolled(true);
             showAlert("Successfully enrolled! Starting course...", "success");
-            
+
             if (chapters.length > 0 && chapters[0].lessons?.length > 0) {
                 const firstLessonId = chapters[0].lessons[0].id;
                 navigate(`/course/${courseId}/learn/lesson/${firstLessonId}`);
@@ -117,21 +119,21 @@ export default function CourseLanding() {
         );
     }
 
-    const difficultyColor = 
-        course.dificultate === "usor" ? "success" : 
-        course.dificultate === "mediu" ? "warning" : "error";
+    const difficultyColor =
+        course.dificultate === "usor" ? "success" :
+            course.dificultate === "mediu" ? "warning" : "error";
 
     return (
         <Box sx={{ bgcolor: 'background.default', minHeight: '100vh' }}>
             {/* Hero Section */}
             <Box sx={{ bgcolor: 'grey.900', color: 'white', py: 8 }}>
-                <Container maxWidth="lg">
-                    <Grid container spacing={4} alignItems="center">
-                        <Grid item xs={12} md={7}>
-                            <Chip 
-                                label={course.dificultate} 
-                                color={difficultyColor} 
-                                size="small" 
+                <Container maxWidth="xl"> {/* Changed from "lg" to "xl" */}
+                    <Grid container spacing={4} alignItems="center" justifyContent="center">
+                        <Grid item xs={12} md={6} lg={5}> {/* Limited width on large screens */}
+                            <Chip
+                                label={course.dificultate}
+                                color={difficultyColor}
+                                size="small"
                                 sx={{ mb: 2 }}
                             />
                             <Typography variant="h3" component="h1" fontWeight="bold" gutterBottom>
@@ -141,7 +143,7 @@ export default function CourseLanding() {
                                 {course.descriere}
                             </Typography>
 
-                            <Stack direction="row" spacing={3} sx={{ mb: 3 }}>
+                            <Stack direction="row" spacing={3} sx={{ mb: 3 }} flexWrap="wrap">
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                     <SchoolIcon />
                                     <Typography>{totalLessons} Lessons</Typography>
@@ -156,24 +158,34 @@ export default function CourseLanding() {
                                 </Box>
                             </Stack>
 
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
                                 <Typography variant="h4" fontWeight="bold">
                                     {course.pret > 0 ? `$${course.pret}` : "Free"}
                                 </Typography>
 
-                                {isEnrolled ? (
-                                    <Button 
-                                        variant="contained" 
-                                        size="large" 
+                                {/* Show appropriate button based on user status */}
+                                {userData?.id === course.autor_id ? (
+                                    <Button
+                                        variant="contained"
+                                        size="large"
+                                        onClick={() => navigate(`/instructor/course/${courseId}/edit`)}
+                                        sx={{ px: 4 }}
+                                    >
+                                        Edit Course
+                                    </Button>
+                                ) : isEnrolled ? (
+                                    <Button
+                                        variant="contained"
+                                        size="large"
                                         onClick={handleGoToCourse}
                                         sx={{ px: 4 }}
                                     >
                                         Continue Learning
                                     </Button>
                                 ) : (
-                                    <Button 
-                                        variant="contained" 
-                                        size="large" 
+                                    <Button
+                                        variant="contained"
+                                        size="large"
                                         onClick={handleEnroll}
                                         disabled={isEnrolling}
                                         sx={{ px: 4 }}
@@ -184,11 +196,14 @@ export default function CourseLanding() {
                             </Box>
                         </Grid>
 
-                        <Grid item xs={12} md={5}>
-                            <Card elevation={8} sx={{ borderRadius: 2 }}>
+                        <Grid item xs={12} md={6} lg={5}> {/* Limited width & centered */}
+                            <Card elevation={8} sx={{ borderRadius: 2, maxWidth: 600, mx: 'auto' }}>
                                 <CardMedia
                                     component="img"
-                                    height="300"
+                                    sx={{
+                                        height: { xs: 200, sm: 300, md: 350 },
+                                        objectFit: 'cover'
+                                    }}
                                     image={course.thumbnail_url || '/images/default.jpg'}
                                     alt={course.nume_curs}
                                 />
@@ -200,6 +215,12 @@ export default function CourseLanding() {
 
             {/* Course Content */}
             <Container maxWidth="lg" sx={{ py: 6 }}>
+                <Breadcrumbs
+                    customItems={[
+                        { label: 'Courses', path: '/courses' },
+                        { label: course?.nume_curs || 'Course', path: `/courses/${courseId}` }
+                    ]}
+                />
                 <Grid container spacing={4}>
                     <Grid item xs={12} md={8}>
                         <Typography variant="h5" fontWeight="bold" gutterBottom>
@@ -234,9 +255,9 @@ export default function CourseLanding() {
                                             <Typography variant="subtitle1" fontWeight="bold">
                                                 {chapter.title}
                                             </Typography>
-                                            <Chip 
-                                                label={`${chapter.lessons?.length || 0} lessons`} 
-                                                size="small" 
+                                            <Chip
+                                                label={`${chapter.lessons?.length || 0} lessons`}
+                                                size="small"
                                             />
                                         </Box>
                                     </AccordionSummary>
@@ -251,7 +272,7 @@ export default function CourseLanding() {
                                                             <LockIcon color="action" fontSize="small" />
                                                         )}
                                                     </ListItemIcon>
-                                                    <ListItemText 
+                                                    <ListItemText
                                                         primary={lesson.title}
                                                         secondary={isEnrolled ? null : "Unlock with enrollment"}
                                                     />
@@ -289,9 +310,9 @@ export default function CourseLanding() {
                             </List>
 
                             {!isEnrolled && (
-                                <Button 
-                                    variant="contained" 
-                                    fullWidth 
+                                <Button
+                                    variant="contained"
+                                    fullWidth
                                     size="large"
                                     onClick={handleEnroll}
                                     disabled={isEnrolling}
@@ -303,6 +324,9 @@ export default function CourseLanding() {
                         </Paper>
                     </Grid>
                 </Grid>
+                <Box sx={{ mt: 6 }}>
+                    <ReviewSection courseId={courseId} isEnrolled={isEnrolled} />
+                </Box>
             </Container>
         </Box>
     );

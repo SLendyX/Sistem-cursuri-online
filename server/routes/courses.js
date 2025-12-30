@@ -14,6 +14,10 @@ const router = express.Router();
 router.use(express.json());
 router.use(cookieParser());
 
+BigInt.prototype.toJSON = function() {       
+  return Number(this); // Or return this.toString() if the numbers are truly massive
+}
+
 // --- Multer Configuration ---
 const uploadDir = path.join(__dirname, '../public/images');
 if (!fs.existsSync(uploadDir)) {
@@ -50,7 +54,7 @@ const verifyToken = (req) => {
 
 // GET /api/courses - PUBLIC (only published courses + search support)
 router.get("/courses", async (req, res) => {
-    const { search } = req.query;
+    const { search, sortBy, category } = req.query;
 
     try {
         const conn = await pool.getConnection();
@@ -60,12 +64,37 @@ router.get("/courses", async (req, res) => {
                      WHERE c.is_published = 1`;
         const params = [];
 
+        // Search filter
         if (search) {
-            query += ` AND (c.nume_curs LIKE ? OR c.descriere LIKE ? OR c.pret LIKE ? OR u.name LIKE ? OR c.dificultate LIKE ?)`;
-            params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
+            query += ` AND (c.nume_curs LIKE ? OR c.descriere LIKE ? OR u.name LIKE ? OR c.dificultate LIKE ?)`;
+            params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
         }
 
-        query += ` ORDER BY c.curs_id DESC`;
+        // Category filter
+        if (category && category !== 'All') {
+            query += ` AND c.category = ?`;
+            params.push(category);
+        }
+
+        // Sorting
+        switch(sortBy) {
+            case 'price_asc':
+                query += ` ORDER BY c.pret ASC`;
+                break;
+            case 'price_desc':
+                query += ` ORDER BY c.pret DESC`;
+                break;
+            case 'popularity':
+                query += ` ORDER BY c.studenti_inrolati DESC`;
+                break;
+            case 'rating':
+                query += ` ORDER BY c.rating DESC`;
+                break;
+            case 'newest':
+            default:
+                query += ` ORDER BY c.curs_id DESC`;
+                break;
+        }
 
         const rows = await conn.query(query, params);
         conn.release();
@@ -88,6 +117,25 @@ router.get("/courses/:id", async (req, res) => {
 
         if (!course) return res.status(404).json({ error: "Course not found" });
         res.json(course);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/categories - Get all available categories
+router.get("/categories", async (req, res) => {
+    try {
+        const conn = await pool.getConnection();
+        const categories = await conn.query(
+            `SELECT DISTINCT category, COUNT(*) as count 
+             FROM curs 
+             WHERE is_published = 1 
+             GROUP BY category 
+             ORDER BY category ASC`
+        );
+        conn.release();
+
+        res.json(categories);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -125,7 +173,7 @@ router.post("/courses", upload.single('image'), async (req, res) => {
     const userId = verifyToken(req);
     if (!userId) return res.status(401).json({ error: "Not authenticated" });
 
-    const { numeCurs, descriere, dificultate, pret } = req.body;
+    const { numeCurs, descriere, dificultate, pret, category } = req.body; // Adaugă category
 
     try {
         const conn = await pool.getConnection();
@@ -139,9 +187,9 @@ router.post("/courses", upload.single('image'), async (req, res) => {
         const finalImage = req.file ? `/images/${req.file.filename}` : '/images/default.jpg';
 
         await conn.query(
-            `INSERT INTO curs (autor_id, nume_curs, descriere, dificultate, pret, thumbnail_url, rating, is_published) 
-             VALUES (?, ?, ?, ?, ?, ?, 0, 0)`,
-            [userId, numeCurs, descriere, dificultate || 'usor', parseFloat(pret), finalImage]
+            `INSERT INTO curs (autor_id, nume_curs, descriere, dificultate, category, pret, thumbnail_url, rating, is_published) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0)`,
+            [userId, numeCurs, descriere, dificultate || 'usor', category || 'General', parseFloat(pret), finalImage]
         );
 
         conn.release();
@@ -157,13 +205,12 @@ router.patch("/courses/:id", upload.single('image'), async (req, res) => {
     if (!userId) return res.status(401).json({ error: "Not authenticated" });
 
     const courseId = req.params.id;
-    const { numeCurs, descriere, dificultate, pret, isPublished } = req.body;
+    const { numeCurs, descriere, dificultate, pret, isPublished, category } = req.body; // Adaugă category
     const newImage = req.file ? `/images/${req.file.filename}` : null;
 
     try {
         const conn = await pool.getConnection();
 
-        // Verify ownership
         const [course] = await conn.query("SELECT autor_id FROM curs WHERE curs_id = ?", [courseId]);
         if (!course || course.autor_id !== userId) {
             conn.release();
@@ -174,10 +221,11 @@ router.patch("/courses/:id", upload.single('image'), async (req, res) => {
                    nume_curs = COALESCE(?, nume_curs),
                    descriere = COALESCE(?, descriere),
                    dificultate = COALESCE(?, dificultate),
+                   category = COALESCE(?, category),
                    pret = COALESCE(?, pret),
                    is_published = COALESCE(?, is_published)`;
         
-        const params = [numeCurs, descriere, dificultate, pret, isPublished];
+        const params = [numeCurs, descriere, dificultate, category, pret, isPublished];
 
         if (newImage) {
             sql += `, thumbnail_url = ?`;
@@ -195,7 +243,7 @@ router.patch("/courses/:id", upload.single('image'), async (req, res) => {
         console.error(err);
         res.status(500).json({ error: "Failed to update course" });
     }
-});
+}); 
 
 // DELETE /api/courses/:id - Delete course (with cascade)
 router.delete("/courses/:id", async (req, res) => {
@@ -570,6 +618,111 @@ router.get("/instructor/statistics", async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: "Failed to fetch statistics" });
+    }
+});
+
+router.get("/courses/:id/reviews", async (req, res) => {
+    const courseId = req.params.id;
+
+    try {
+        const conn = await pool.getConnection();
+        
+        const reviews = await conn.query(
+            `SELECT r.*, u.name, u.username 
+             FROM reviews r
+             JOIN user u ON r.user_id = u.id
+             WHERE r.course_id = ?
+             ORDER BY r.created_at DESC`,
+            [courseId]
+        );
+
+        // Calculate average rating
+        const [avgRating] = await conn.query(
+            "SELECT AVG(rating) as avg, COUNT(*) as count FROM reviews WHERE course_id = ?",
+            [courseId]
+        );
+
+        conn.release();
+
+        res.json({
+            reviews,
+            averageRating: avgRating?.avg || 0,
+            totalReviews: avgRating?.count || 0
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Failed to fetch reviews" });
+    }
+});
+
+// POST /api/courses/:id/reviews - Add a review
+router.post("/courses/:id/reviews", async (req, res) => {
+    const userId = verifyToken(req);
+    if (!userId) return res.status(401).json({ error: "Not authenticated" });
+
+    const courseId = req.params.id;
+    const { rating, comment } = req.body;
+
+    if (!rating || rating < 1 || rating > 5) {
+        return res.status(400).json({ error: "Rating must be between 1 and 5" });
+    }
+
+    try {
+        const conn = await pool.getConnection();
+
+        // Check enrollment and progress
+        const [enrollment] = await conn.query(
+            `SELECT progress_percentage FROM enrollment 
+             WHERE user_id = ? AND course_id = ?`,
+            [userId, courseId]
+        );
+
+        if (!enrollment) {
+            conn.release();
+            return res.status(403).json({ error: "You must be enrolled to leave a review" });
+        }
+
+        if (enrollment.progress_percentage < 20) {
+            conn.release();
+            return res.status(403).json({ error: "Complete at least 20% of the course to leave a review" });
+        }
+
+        // Check if review already exists
+        const [existing] = await conn.query(
+            "SELECT id FROM reviews WHERE user_id = ? AND course_id = ?",
+            [userId, courseId]
+        );
+
+        if (existing) {
+            // Update existing review
+            await conn.query(
+                "UPDATE reviews SET rating = ?, comment = ? WHERE id = ?",
+                [rating, comment, existing.id]
+            );
+        } else {
+            // Create new review
+            await conn.query(
+                "INSERT INTO reviews (course_id, user_id, rating, comment) VALUES (?, ?, ?, ?)",
+                [courseId, userId, rating, comment]
+            );
+        }
+
+        // Update course average rating
+        const [avgRating] = await conn.query(
+            "SELECT AVG(rating) as avg FROM reviews WHERE course_id = ?",
+            [courseId]
+        );
+
+        await conn.query(
+            "UPDATE curs SET rating = ? WHERE curs_id = ?",
+            [avgRating.avg || 0, courseId]
+        );
+
+        conn.release();
+        res.json({ message: "Review submitted successfully" });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Failed to submit review" });
     }
 });
 

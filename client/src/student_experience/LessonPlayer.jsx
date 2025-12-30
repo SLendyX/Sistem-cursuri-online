@@ -1,25 +1,30 @@
 // client/src/LessonPlayer.jsx
 import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate, useOutletContext } from 'react-router';
-import { LoggedInContext } from './context/LoggedInContext';
+import { LoggedInContext } from '../context/LoggedInContext';
 import LessonPreview from './LessonPreview';
+import Breadcrumbs from '../components/Breadcrumbs';
 import {
     Box, Button, Stack, Checkbox, FormControlLabel,
-    Paper, Typography, CircularProgress, Divider
+    Paper, Typography, CircularProgress, Dialog, DialogTitle,
+    DialogContent, DialogActions, Container
 } from '@mui/material';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
+
 
 export default function LessonPlayer() {
     const { courseId, lessonId } = useParams();
     const navigate = useNavigate();
     const { showAlert } = useContext(LoggedInContext);
-    const { completedLessons, setCompletedLessons, chapters } = useOutletContext();
+    const { completedLessons, setCompletedLessons, chapters, courseInfo } = useOutletContext();
 
     const [lessonData, setLessonData] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isCompleted, setIsCompleted] = useState(false);
+    const [showCongrats, setShowCongrats] = useState(false);
 
     // Find current lesson and its neighbors
     const allLessons = chapters.flatMap(ch =>
@@ -28,6 +33,7 @@ export default function LessonPlayer() {
     const currentIndex = allLessons.findIndex(l => l.id === Number(lessonId));
     const prevLesson = currentIndex > 0 ? allLessons[currentIndex - 1] : null;
     const nextLesson = currentIndex < allLessons.length - 1 ? allLessons[currentIndex + 1] : null;
+    const isLastLesson = !nextLesson;
 
     // Load lesson content
     useEffect(() => {
@@ -79,6 +85,20 @@ export default function LessonPlayer() {
         navigate(`/course/${courseId}/learn/lesson/${targetLessonId}`);
     };
 
+    const handleFinishCourse = () => {
+        // Check if current lesson is marked complete
+        if (!isCompleted) {
+            showAlert("Please mark this lesson as complete before finishing the course", "warning");
+            return;
+        }
+        setShowCongrats(true);
+    };
+
+    const handleCloseCongrats = () => {
+        setShowCongrats(false);
+        navigate(`/courses/${courseId}`);
+    };
+
     if (isLoading) {
         return (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
@@ -101,6 +121,16 @@ export default function LessonPlayer() {
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             {/* Main Content (Scrollable) */}
             <Box sx={{ flex: 1, overflow: 'auto' }}>
+                <Container maxWidth="lg">
+                    <Breadcrumbs
+                        customItems={[
+                            { label: 'Courses', path: '/courses' },
+                            { label: courseInfo?.nume_curs || 'Course', path: `/courses/${courseId}` },
+                            { label: 'Learn', path: `/course/${courseId}/learn` },
+                            { label: lessonData?.title || 'Lesson', path: '' }
+                        ]}
+                    />
+                </Container>
                 <LessonPreview
                     title={lessonData.title}
                     content={lessonData.content}
@@ -151,17 +181,59 @@ export default function LessonPlayer() {
                         }
                     />
 
-                    {/* Next Button */}
-                    <Button
-                        variant="contained"
-                        endIcon={<NavigateNextIcon />}
-                        disabled={!nextLesson}
-                        onClick={() => nextLesson && handleNavigation(nextLesson.id)}
-                    >
-                        {nextLesson ? "Next Lesson" : "Course Complete"}
-                    </Button>
+                    {/* Next / Finish Button */}
+                    {isLastLesson ? (
+                        <Button
+                            variant="contained"
+                            color="success"
+                            endIcon={<EmojiEventsIcon />}
+                            onClick={handleFinishCourse}
+                        >
+                            Finish Course
+                        </Button>
+                    ) : (
+                        <Button
+                            variant="contained"
+                            endIcon={<NavigateNextIcon />}
+                            onClick={() => handleNavigation(nextLesson.id)}
+                        >
+                            Next Lesson
+                        </Button>
+                    )}
                 </Stack>
             </Paper>
+
+            {/* Congratulations Dialog */}
+            <Dialog
+                open={showCongrats}
+                onClose={handleCloseCongrats}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle sx={{ textAlign: 'center', pt: 4 }}>
+                    <EmojiEventsIcon sx={{ fontSize: 80, color: 'warning.main', mb: 2 }} />
+                    <Typography variant="h4" fontWeight="bold">
+                        Congratulations! 🎉
+                    </Typography>
+                </DialogTitle>
+                <DialogContent sx={{ textAlign: 'center', pb: 2 }}>
+                    <Typography variant="h6" gutterBottom>
+                        You've completed "{courseInfo?.nume_curs}"
+                    </Typography>
+                    <Typography variant="body1" color="text.secondary">
+                        Great job! You've finished all lessons in this course.
+                    </Typography>
+                </DialogContent>
+                <DialogActions sx={{ justifyContent: 'center', pb: 3 }}>
+                    <Button
+                        variant="contained"
+                        size="large"
+                        onClick={handleCloseCongrats}
+                    >
+                        Back to Course Page
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 }

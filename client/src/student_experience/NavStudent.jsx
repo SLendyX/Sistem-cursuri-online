@@ -3,7 +3,7 @@ import { NavLink, Link } from "react-router";
 import { LoggedInContext } from "../context/LoggedInContext";
 import { AppBar, Button, Stack, Divider, Container, Skeleton, Typography, Toolbar, IconButton, Menu, MenuItem } from '@mui/material';
 import AccountCircle from '@mui/icons-material/AccountCircle';
-import NavSkeleton from "./NavSkeleton";
+import NavSkeleton from "../components/NavSkeleton";
 
 export default function () {
   const linkArray = ["courses", "about", "login"];

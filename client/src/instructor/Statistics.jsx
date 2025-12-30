@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { LoggedInContext } from './context/LoggedInContext';
+import { LoggedInContext } from '../context/LoggedInContext';
 import {
     Container, Paper, Typography, Box, Grid, Card, CardContent,
     CircularProgress, Divider, List, ListItem, ListItemText, Avatar

@@ -1,6 +1,6 @@
 import React, { useContext, useState } from "react";
 import { NavLink, useNavigate } from "react-router";
-import { LoggedInContext } from "./context/LoggedInContext";
+import { LoggedInContext } from "../context/LoggedInContext";
 
 // MUI Imports
 import {

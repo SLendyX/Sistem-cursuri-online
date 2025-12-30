@@ -18,8 +18,8 @@ export default function ({ curs, ...props }) {
     // ⭐ KEY CHANGE: Now links to /courses/:id instead of player
     <NavLink className="course-card-link" to={`/courses/${curs_id}`}>
       <Card sx={{
-        maxWidth: 340, 
-        borderRadius: 2, 
+        maxWidth: 340,
+        borderRadius: 2,
         boxShadow: 3,
         '&:hover': {
           transform: 'scale(1.05)',
@@ -49,8 +49,8 @@ export default function ({ curs, ...props }) {
           <Typography gutterBottom variant="h5" component="div" fontWeight="bold">
             {nume_curs}
           </Typography>
-          <Typography 
-            variant="body2" 
+          <Typography
+            variant="body2"
             color="text.secondary"
             sx={{
               overflow: 'hidden',
@@ -85,8 +85,22 @@ export default function ({ curs, ...props }) {
               <Avatar sx={{ width: 24, height: 24, bgcolor: 'primary.main' }}>
                 {name?.[0] || '?'}
               </Avatar>
-              <Typography variant="subtitle2">By {name || 'Unknown'}</Typography>
-            </Box>
+              <Typography
+                variant="subtitle2"
+                component={NavLink}
+                to={`/instructor/${curs.autor_id}`}
+                sx={{
+                  textDecoration: 'none',
+                  color: 'text.primary',
+                  '&:hover': {
+                    textDecoration: 'underline',
+                    color: 'primary.main'
+                  }
+                }}
+              >
+                By {name || 'Unknown'}
+              </Typography>
+            </Box>  
             <Typography variant="h6" color="primary" fontWeight="bold">
               {pret > 0 ? `$${pret}` : "Free"}
             </Typography>

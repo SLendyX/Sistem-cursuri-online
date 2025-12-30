@@ -5,32 +5,32 @@ import './index.css'
 
 // Layouts & Providers
 import AuthProvider from './context/AuthProvider.jsx';
-import StudentLayout from './page_elements/StudentLayout.jsx';
-import ProfessorLayout from './page_elements/ProfessorLayout.jsx';
-import CoursePlayerLayout from './CoursePlayerLayout.jsx';
+import StudentLayout from './student_experience/StudentLayout.jsx';
+import ProfessorLayout from './instructor/ProfessorLayout.jsx';
+import CoursePlayerLayout from './student_experience/CoursePlayerLayout.jsx';
 
 // Pages
-import Home from './Home.jsx'
-import Login from "./Login.jsx"
-import Profile from "./Profil.jsx"
-import Courses from "./Cursuri.jsx"
-import CourseLanding from './CourseLanding.jsx';
-import LessonPlayer from './LessonPlayer.jsx';
-import About from './About.jsx';
-import Register from './Register.jsx';
-import CreateCourse from './CreateCourse.jsx';
-import CourseEditorLayout from './CourseEditorLayout.jsx';
-import CreatedCourses from './CreatedCourses.jsx';
-import LessonEditor from './LessonEditor.jsx';
-import ChapterEditor from './ChapterEditor.jsx';
-import CourseEditor from './CourseEditor.jsx';
-import Statistics from './Statistics.jsx'; // NEW
-import MyLearning from './MyLearning.jsx'; // NEW
-
+import Home from './general/Home.jsx'
+import Login from "./authentification/Login.jsx"
+import Profile from "./general/Profil.jsx"
+import Courses from "./course_componenents/Cursuri.jsx"
+import CourseLanding from './course_componenents/CourseLanding.jsx';
+import LessonPlayer from './student_experience/LessonPlayer.jsx';
+import About from './general/About.jsx';
+import Register from './authentification/Register.jsx';
+import CreateCourse from './instructor/CreateCourse.jsx';
+import CourseEditorLayout from './editor/CourseEditorLayout.jsx';
+import CreatedCourses from './instructor/CreatedCourses.jsx';
+import LessonEditor from './editor/LessonEditor.jsx';
+import ChapterEditor from './editor/ChapterEditor.jsx';
+import CourseEditor from './editor/CourseEditor.jsx';
+import Statistics from './instructor/Statistics.jsx'; // NEW
+import MyLearning from './student_experience/MyLearning.jsx'; // NEW
+import InstructorProfile from './student_experience/InstructorProfile.jsx';
 // Guards
-import RequireAuth from './RequireAuth.jsx';
-import PublicOnlyRoute from './PublicOnlyRoute.jsx';
-import TeacherOnlyRoute from './TeacherOnlyRoute.jsx';
+import RequireAuth from './protected/RequireAuth.jsx';
+import PublicOnlyRoute from './protected/PublicOnlyRoute.jsx';
+import TeacherOnlyRoute from './protected/TeacherOnlyRoute.jsx';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -61,6 +61,8 @@ createRoot(document.getElementById('root')).render(
               <Route index element={<Courses />} />
               <Route path=":courseId" element={<CourseLanding />} />
             </Route>
+            {/* Instructor Public Profile */}
+            <Route path="/instructor/:instructorId" element={<InstructorProfile />} />
           </Route>
 
           {/* ================================================= */}

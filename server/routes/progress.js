@@ -14,8 +14,8 @@ const verifyToken = (req) => {
     if (!token) return null;
     try {
         return jwt.verify(token, process.env.JWT_SECRET).userId;
-    } catch (err) { 
-        return null; 
+    } catch (err) {
+        return null;
     }
 };
 
@@ -41,7 +41,7 @@ router.get("/progress/:courseId", async (req, res) => {
 
         conn.release();
 
-        res.json({ 
+        res.json({
             completedLessonIds: completed.map(row => row.lesson_id)
         });
     } catch (err) {
@@ -81,6 +81,9 @@ router.post("/progress/lesson/:lessonId", async (req, res) => {
             );
         }
 
+        // Update enrollment progress percentage
+        await updateCourseProgress(conn, userId, lessonId);
+
         conn.release();
         res.json({ message: "Progress updated" });
     } catch (err) {
@@ -89,7 +92,57 @@ router.post("/progress/lesson/:lessonId", async (req, res) => {
     }
 });
 
-// GET /api/enrollments - Get user's enrolled courses
+// Helper function to recalculate and update course progress
+async function updateCourseProgress(conn, userId, lessonId) {
+    try {
+        // Get course ID from lesson
+        const [lesson] = await conn.query(
+            `SELECT c.curs_id 
+             FROM lesson l 
+             JOIN chapter c ON l.chapter_id = c.id 
+             WHERE l.id = ?`,
+            [lessonId]
+        );
+
+        if (!lesson) return;
+
+        const courseId = lesson.curs_id;
+
+        // Calculate progress
+        const [stats] = await conn.query(
+            `SELECT 
+                (SELECT COUNT(*) 
+                 FROM lesson_progress lp
+                 JOIN lesson l ON lp.lesson_id = l.id
+                 JOIN chapter ch ON l.chapter_id = ch.id
+                 WHERE ch.curs_id = ? AND lp.user_id = ? AND lp.is_completed = 1
+                ) as completed,
+                (SELECT COUNT(*)
+                 FROM lesson l
+                 JOIN chapter ch ON l.chapter_id = ch.id
+                 WHERE ch.curs_id = ?
+                ) as total`,
+            [courseId, userId, courseId]
+        );
+
+        const progressPercent = stats.total > 0
+            ? Math.round((stats.completed / stats.total) * 100)
+            : 0;
+
+        // Update enrollment table
+        await conn.query(
+            `UPDATE enrollment 
+             SET progress_percentage = ?
+             WHERE user_id = ? AND course_id = ?`,
+            [progressPercent, userId, courseId]
+        );
+
+    } catch (err) {
+        console.error("Failed to update course progress:", err);
+    }
+}
+
+// GET /api/enrollments - Get user's enrolled courses WITH CALCULATED PROGRESS
 router.get("/enrollments", async (req, res) => {
     const userId = verifyToken(req);
     if (!userId) return res.status(401).json({ error: "Not authenticated" });
@@ -98,7 +151,27 @@ router.get("/enrollments", async (req, res) => {
         const conn = await pool.getConnection();
 
         const enrollments = await conn.query(
-            `SELECT e.*, c.nume_curs, c.thumbnail_url, c.dificultate, u.name as instructor_name
+            `SELECT 
+                e.*,
+                c.nume_curs,
+                c.thumbnail_url,
+                c.dificultate,
+                u.name as instructor_name,
+                COALESCE(
+                    (SELECT COUNT(*) 
+                     FROM lesson_progress lp
+                     JOIN lesson l ON lp.lesson_id = l.id
+                     JOIN chapter ch ON l.chapter_id = ch.id
+                     WHERE ch.curs_id = e.course_id AND lp.user_id = e.user_id AND lp.is_completed = 1
+                    ), 0
+                ) as completed_lessons,
+                COALESCE(
+                    (SELECT COUNT(*)
+                     FROM lesson l
+                     JOIN chapter ch ON l.chapter_id = ch.id
+                     WHERE ch.curs_id = e.course_id
+                    ), 0
+                ) as total_lessons
              FROM enrollment e
              JOIN curs c ON e.course_id = c.curs_id
              JOIN user u ON c.autor_id = u.id
@@ -107,8 +180,28 @@ router.get("/enrollments", async (req, res) => {
             [userId]
         );
 
+        // Calculate progress percentage dynamically
+        const enrichedEnrollments = enrollments.map(enrollment => {
+            // 1. Convert BigInts to standard Numbers immediately
+            const completed = Number(enrollment.completed_lessons);
+            const total = Number(enrollment.total_lessons);
+
+            // 2. Perform math using the standard Numbers
+            const progress = total > 0
+                ? Math.round((completed / total) * 100)
+                : 0;
+
+            return {
+                ...enrollment,
+                // 3. Return the clean numbers (so JSON.stringify doesn't break later)
+                completed_lessons: completed,
+                total_lessons: total,
+                progress_percentage: progress
+            };
+        });
+
         conn.release();
-        res.json(enrollments);
+        res.json(enrichedEnrollments);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: "Failed to fetch enrollments" });
@@ -136,9 +229,9 @@ router.post("/enroll/:courseId", async (req, res) => {
             return res.status(400).json({ error: "Already enrolled in this course" });
         }
 
-        // Get course price
+        // Get course details
         const [course] = await conn.query(
-            "SELECT pret FROM curs WHERE curs_id = ?",
+            "SELECT pret, autor_id FROM curs WHERE curs_id = ?",
             [courseId]
         );
 
@@ -147,9 +240,15 @@ router.post("/enroll/:courseId", async (req, res) => {
             return res.status(404).json({ error: "Course not found" });
         }
 
-        // Create enrollment (payment logic would go here in production)
+        // Check if user is the course author
+        if (course.autor_id === userId) {
+            conn.release();
+            return res.status(400).json({ error: "You cannot enroll in your own course" });
+        }
+
+        // Create enrollment
         await conn.query(
-            "INSERT INTO enrollment (user_id, course_id, purchase_price) VALUES (?, ?, ?)",
+            "INSERT INTO enrollment (user_id, course_id, purchase_price, progress_percentage) VALUES (?, ?, ?, 0)",
             [userId, courseId, course.pret]
         );
 

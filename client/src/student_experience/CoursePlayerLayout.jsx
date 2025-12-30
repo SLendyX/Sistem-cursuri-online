@@ -1,7 +1,7 @@
 // client/src/CoursePlayerLayout.jsx
 import React, { useState, useEffect, useContext } from 'react';
 import { Outlet, useParams, useNavigate, useMatch } from 'react-router';
-import { LoggedInContext } from './context/LoggedInContext';
+import { LoggedInContext } from '../context/LoggedInContext';
 import {
     Box, Drawer, List, Typography, Divider, ListItem, ListItemButton, 
     ListItemText, ListItemIcon, Collapse, LinearProgress, CssBaseline,

@@ -1,6 +1,6 @@
 import { useContext } from "react";
 import { Navigate, Outlet } from "react-router";
-import { LoggedInContext } from "./context/LoggedInContext";
+import { LoggedInContext } from "../context/LoggedInContext";
 import CircularProgress from '@mui/material/CircularProgress';
 import Box from '@mui/material/Box';
 
