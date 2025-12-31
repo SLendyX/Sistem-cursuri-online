@@ -50,6 +50,64 @@ const verifyToken = (req) => {
     } catch (err) { return null; }
 };
 
+// --- Auth & Ownership Helpers ---
+const requireProfessor = async (req, res, next) => {
+    const userId = verifyToken(req);
+    if (!userId) return res.status(401).json({ error: "Not authenticated" });
+
+    try {
+        const conn = await pool.getConnection();
+        const [user] = await conn.query("SELECT type FROM user WHERE id = ?", [userId]);
+        conn.release();
+
+        if (user?.type !== 'professor') {
+            return res.status(403).json({ error: "Only professors can modify courses" });
+        }
+
+        req.userId = userId;
+        next();
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Failed to verify permissions" });
+    }
+};
+
+const ensureCourseOwner = async (conn, userId, courseId) => {
+    const [course] = await conn.query("SELECT autor_id FROM curs WHERE curs_id = ?", [courseId]);
+    if (!course) return { ok: false, status: 404, message: "Course not found" };
+    if (course.autor_id !== userId) return { ok: false, status: 403, message: "Not authorized to modify this course" };
+    return { ok: true, course };
+};
+
+const ensureChapterOwner = async (conn, userId, chapterId) => {
+    const [chapter] = await conn.query(
+        `SELECT ch.id, ch.curs_id, c.autor_id
+         FROM chapter ch
+         JOIN curs c ON ch.curs_id = c.curs_id
+         WHERE ch.id = ?`,
+        [chapterId]
+    );
+
+    if (!chapter) return { ok: false, status: 404, message: "Chapter not found" };
+    if (chapter.autor_id !== userId) return { ok: false, status: 403, message: "Not authorized to modify this chapter" };
+    return { ok: true, chapter };
+};
+
+const ensureLessonOwner = async (conn, userId, lessonId) => {
+    const [lesson] = await conn.query(
+        `SELECT l.id, l.chapter_id, ch.curs_id, c.autor_id
+         FROM lesson l
+         JOIN chapter ch ON l.chapter_id = ch.id
+         JOIN curs c ON ch.curs_id = c.curs_id
+         WHERE l.id = ?`,
+        [lessonId]
+    );
+
+    if (!lesson) return { ok: false, status: 404, message: "Lesson not found" };
+    if (lesson.autor_id !== userId) return { ok: false, status: 403, message: "Not authorized to modify this lesson" };
+    return { ok: true, lesson };
+};
+
 // --- PUBLIC ROUTES ---
 
 // GET /api/courses - PUBLIC (only published courses + search support)
@@ -169,20 +227,12 @@ router.get("/my_courses", async (req, res) => {
 });
 
 // POST /api/courses - Create new course
-router.post("/courses", upload.single('image'), async (req, res) => {
-    const userId = verifyToken(req);
-    if (!userId) return res.status(401).json({ error: "Not authenticated" });
-
-    const { numeCurs, descriere, dificultate, pret, category } = req.body; // Adaugă category
+router.post("/courses", requireProfessor, upload.single('image'), async (req, res) => {
+    const userId = req.userId;
+    const { numeCurs, descriere, dificultate, pret, category } = req.body;
 
     try {
         const conn = await pool.getConnection();
-        const [user] = await conn.query("SELECT type FROM user WHERE id = ?", [userId]);
-
-        if (user?.type !== 'professor') {
-            conn.release();
-            return res.status(403).json({ error: "Only professors can create courses" });
-        }
 
         const finalImage = req.file ? `/images/${req.file.filename}` : '/images/default.jpg';
 
@@ -200,21 +250,24 @@ router.post("/courses", upload.single('image'), async (req, res) => {
 });
 
 // PATCH /api/courses/:id - Update course
-router.patch("/courses/:id", upload.single('image'), async (req, res) => {
-    const userId = verifyToken(req);
-    if (!userId) return res.status(401).json({ error: "Not authenticated" });
-
+router.patch("/courses/:id", requireProfessor, upload.single('image'), async (req, res) => {
+    const userId = req.userId;
     const courseId = req.params.id;
-    const { numeCurs, descriere, dificultate, pret, isPublished, category } = req.body; // Adaugă category
+    const { numeCurs, descriere, dificultate, pret, isPublished, category } = req.body;
     const newImage = req.file ? `/images/${req.file.filename}` : null;
+    const clientVersion = Number(req.body.version);
+
+    if (!Number.isInteger(clientVersion)) {
+        return res.status(400).json({ error: "Missing or invalid version" });
+    }
 
     try {
         const conn = await pool.getConnection();
 
-        const [course] = await conn.query("SELECT autor_id FROM curs WHERE curs_id = ?", [courseId]);
-        if (!course || course.autor_id !== userId) {
+        const ownership = await ensureCourseOwner(conn, userId, courseId);
+        if (!ownership.ok) {
             conn.release();
-            return res.status(403).json({ error: "Not authorized" });
+            return res.status(ownership.status).json({ error: ownership.message });
         }
 
         let sql = `UPDATE curs SET 
@@ -223,7 +276,8 @@ router.patch("/courses/:id", upload.single('image'), async (req, res) => {
                    dificultate = COALESCE(?, dificultate),
                    category = COALESCE(?, category),
                    pret = COALESCE(?, pret),
-                   is_published = COALESCE(?, is_published)`;
+                   is_published = COALESCE(?, is_published),
+                   version = version + 1`;
 
         const params = [numeCurs, descriere, dificultate, category, pret, isPublished];
 
@@ -232,13 +286,18 @@ router.patch("/courses/:id", upload.single('image'), async (req, res) => {
             params.push(newImage);
         }
 
-        sql += ` WHERE curs_id = ?`;
-        params.push(courseId);
+        sql += ` WHERE curs_id = ? AND version = ?`;
+        params.push(courseId, clientVersion);
 
-        await conn.query(sql, params);
+        const result = await conn.query(sql, params);
+        if (result.affectedRows === 0) {
+            const [current] = await conn.query("SELECT version FROM curs WHERE curs_id = ?", [courseId]);
+            conn.release();
+            return res.status(409).json({ error: "Version conflict", currentVersion: current?.version });
+        }
         conn.release();
 
-        res.json({ message: "Course updated successfully", newImage });
+        res.json({ message: "Course updated successfully", newImage, version: clientVersion + 1 });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: "Failed to update course" });
@@ -246,24 +305,17 @@ router.patch("/courses/:id", upload.single('image'), async (req, res) => {
 });
 
 // DELETE /api/courses/:id - Delete course (with cascade)
-router.delete("/courses/:id", async (req, res) => {
-    const userId = verifyToken(req);
-    if (!userId) return res.status(401).json({ error: "Not authenticated" });
-
+router.delete("/courses/:id", requireProfessor, async (req, res) => {
+    const userId = req.userId;
     const courseId = req.params.id;
 
     try {
         const conn = await pool.getConnection();
 
-        // Verify ownership
-        const [course] = await conn.query("SELECT autor_id FROM curs WHERE curs_id = ?", [courseId]);
-        if (!course) {
+        const ownership = await ensureCourseOwner(conn, userId, courseId);
+        if (!ownership.ok) {
             conn.release();
-            return res.status(404).json({ error: "Course not found" });
-        }
-        if (course.autor_id !== userId) {
-            conn.release();
-            return res.status(403).json({ error: "Not authorized to delete this course" });
+            return res.status(ownership.status).json({ error: ownership.message });
         }
 
         // Check for enrollments (optional - you can remove this check for hard delete)
@@ -325,12 +377,20 @@ router.get("/chapters/:chapterId/lessons", async (req, res) => {
     }
 });
 
-router.post("/chapters", async (req, res) => {
+router.post("/chapters", requireProfessor, async (req, res) => {
+    const userId = req.userId;
     const { courseId } = req.body;
     if (!courseId) return res.status(400).json({ error: "Missing courseId" });
 
     try {
         const conn = await pool.getConnection();
+
+        const ownership = await ensureCourseOwner(conn, userId, courseId);
+        if (!ownership.ok) {
+            conn.release();
+            return res.status(ownership.status).json({ error: ownership.message });
+        }
+
         const [lastChapter] = await conn.query(
             "SELECT MAX(position) as maxPos FROM chapter WHERE curs_id = ?",
             [courseId]
@@ -350,12 +410,20 @@ router.post("/chapters", async (req, res) => {
     }
 });
 
-router.post("/lessons", async (req, res) => {
+router.post("/lessons", requireProfessor, async (req, res) => {
+    const userId = req.userId;
     const { chapterId } = req.body;
     if (!chapterId) return res.status(400).json({ error: "Missing chapterId" });
 
     try {
         const conn = await pool.getConnection();
+
+        const ownership = await ensureChapterOwner(conn, userId, chapterId);
+        if (!ownership.ok) {
+            conn.release();
+            return res.status(ownership.status).json({ error: ownership.message });
+        }
+
         const [lastLesson] = await conn.query(
             "SELECT MAX(position) as maxPos FROM lesson WHERE chapter_id = ?",
             [chapterId]
@@ -375,22 +443,20 @@ router.post("/lessons", async (req, res) => {
     }
 });
 
-router.delete("/chapters/:id", async (req, res) => {
+router.delete("/chapters/:id", requireProfessor, async (req, res) => {
+    const userId = req.userId;
     const chapterId = req.params.id;
 
     try {
         const conn = await pool.getConnection();
-        const [chapterToDelete] = await conn.query(
-            "SELECT curs_id, position FROM chapter WHERE id = ?",
-            [chapterId]
-        );
+        const ownership = await ensureChapterOwner(conn, userId, chapterId);
 
-        if (!chapterToDelete) {
+        if (!ownership.ok) {
             conn.release();
-            return res.status(404).json({ error: "Chapter not found" });
+            return res.status(ownership.status).json({ error: ownership.message });
         }
 
-        const { curs_id, position } = chapterToDelete;
+        const { curs_id, position } = ownership.chapter;
 
         await conn.query("DELETE FROM chapter WHERE id = ?", [chapterId]);
         await conn.query(
@@ -406,22 +472,20 @@ router.delete("/chapters/:id", async (req, res) => {
     }
 });
 
-router.delete("/lessons/:id", async (req, res) => {
+router.delete("/lessons/:id", requireProfessor, async (req, res) => {
+    const userId = req.userId;
     const lessonId = req.params.id;
 
     try {
         const conn = await pool.getConnection();
-        const [lessonToDelete] = await conn.query(
-            "SELECT chapter_id, position FROM lesson WHERE id = ?",
-            [lessonId]
-        );
+        const ownership = await ensureLessonOwner(conn, userId, lessonId);
 
-        if (!lessonToDelete) {
+        if (!ownership.ok) {
             conn.release();
-            return res.status(404).json({ error: "Lesson not found" });
+            return res.status(ownership.status).json({ error: ownership.message });
         }
 
-        const { chapter_id, position } = lessonToDelete;
+        const { chapter_id, position } = ownership.lesson;
 
         await conn.query("DELETE FROM lesson WHERE id = ?", [lessonId]);
         await conn.query(
@@ -437,11 +501,38 @@ router.delete("/lessons/:id", async (req, res) => {
     }
 });
 
-router.put("/chapters/reorder", async (req, res) => {
+router.put("/chapters/reorder", requireProfessor, async (req, res) => {
+    const userId = req.userId;
     const { items } = req.body;
+
+    if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ error: "Missing chapter items" });
+    }
 
     try {
         const conn = await pool.getConnection();
+        const ids = items.map(item => item.id);
+        const placeholders = ids.map(() => '?').join(',');
+
+        const chapters = await conn.query(
+            `SELECT ch.id, c.autor_id
+             FROM chapter ch
+             JOIN curs c ON ch.curs_id = c.curs_id
+             WHERE ch.id IN (${placeholders})`,
+            ids
+        );
+
+        if (chapters.length !== ids.length) {
+            conn.release();
+            return res.status(404).json({ error: "One or more chapters not found" });
+        }
+
+        const unauthorized = chapters.some(ch => ch.autor_id !== userId);
+        if (unauthorized) {
+            conn.release();
+            return res.status(403).json({ error: "Not authorized to reorder these chapters" });
+        }
+
         for (let index = 0; index < items.length; index++) {
             await conn.query(
                 "UPDATE chapter SET position = ? WHERE id = ?",
@@ -456,11 +547,39 @@ router.put("/chapters/reorder", async (req, res) => {
     }
 });
 
-router.put("/lessons/reorder", async (req, res) => {
+router.put("/lessons/reorder", requireProfessor, async (req, res) => {
+    const userId = req.userId;
     const { items } = req.body;
+
+    if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ error: "Missing lesson items" });
+    }
 
     try {
         const conn = await pool.getConnection();
+        const ids = items.map(item => item.id);
+        const placeholders = ids.map(() => '?').join(',');
+
+        const lessons = await conn.query(
+            `SELECT l.id, c.autor_id
+             FROM lesson l
+             JOIN chapter ch ON l.chapter_id = ch.id
+             JOIN curs c ON ch.curs_id = c.curs_id
+             WHERE l.id IN (${placeholders})`,
+            ids
+        );
+
+        if (lessons.length !== ids.length) {
+            conn.release();
+            return res.status(404).json({ error: "One or more lessons not found" });
+        }
+
+        const unauthorized = lessons.some(lesson => lesson.autor_id !== userId);
+        if (unauthorized) {
+            conn.release();
+            return res.status(403).json({ error: "Not authorized to reorder these lessons" });
+        }
+
         for (let index = 0; index < items.length; index++) {
             await conn.query(
                 "UPDATE lesson SET position = ? WHERE id = ?",
@@ -490,21 +609,41 @@ router.get("/chapters/:id", async (req, res) => {
     }
 });
 
-router.patch("/chapters/:id", async (req, res) => {
+router.patch("/chapters/:id", requireProfessor, async (req, res) => {
+    const userId = req.userId;
     const chapterId = req.params.id;
-    const { title, isPublished } = req.body;
+    const { title, isPublished, version } = req.body;
+    const clientVersion = Number(version);
+
+    if (!Number.isInteger(clientVersion)) {
+        return res.status(400).json({ error: "Missing or invalid version" });
+    }
 
     try {
         const conn = await pool.getConnection();
-        await conn.query(
+
+        const ownership = await ensureChapterOwner(conn, userId, chapterId);
+        if (!ownership.ok) {
+            conn.release();
+            return res.status(ownership.status).json({ error: ownership.message });
+        }
+
+        const result = await conn.query(
             `UPDATE chapter SET 
                 title = COALESCE(?, title),
-                is_published = COALESCE(?, is_published)
-             WHERE id = ?`,
-            [title, isPublished, chapterId]
+                is_published = COALESCE(?, is_published),
+                version = version + 1
+             WHERE id = ? AND version = ?`,
+            [title, isPublished, chapterId, clientVersion]
         );
+
+        if (result.affectedRows === 0) {
+            const [current] = await conn.query("SELECT version FROM chapter WHERE id = ?", [chapterId]);
+            conn.release();
+            return res.status(409).json({ error: "Version conflict", currentVersion: current?.version });
+        }
         conn.release();
-        res.json({ message: "Chapter updated successfully" });
+        res.json({ message: "Chapter updated successfully", version: clientVersion + 1 });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: "Failed to update chapter" });
@@ -532,22 +671,41 @@ router.get("/lessons/:id", async (req, res) => {
     }
 });
 
-router.patch("/lessons/:id", async (req, res) => {
+router.patch("/lessons/:id", requireProfessor, async (req, res) => {
+    const userId = req.userId;
     const lessonId = req.params.id;
-    const { title, content, videoUrl, isPublished, links } = req.body;
+    const { title, content, videoUrl, isPublished, links, version } = req.body;
+    const clientVersion = Number(version);
+
+    if (!Number.isInteger(clientVersion)) {
+        return res.status(400).json({ error: "Missing or invalid version" });
+    }
 
     try {
         const conn = await pool.getConnection();
 
-        await conn.query(
+        const ownership = await ensureLessonOwner(conn, userId, lessonId);
+        if (!ownership.ok) {
+            conn.release();
+            return res.status(ownership.status).json({ error: ownership.message });
+        }
+
+        const result = await conn.query(
             `UPDATE lesson SET 
                 title = COALESCE(?, title), 
                 content = COALESCE(?, content), 
                 video_url = COALESCE(?, video_url),
-                is_published = COALESCE(?, is_published)
-             WHERE id = ?`,
-            [title, content, videoUrl, isPublished, lessonId]
+                is_published = COALESCE(?, is_published),
+                version = version + 1
+             WHERE id = ? AND version = ?`,
+            [title, content, videoUrl, isPublished, lessonId, clientVersion]
         );
+
+        if (result.affectedRows === 0) {
+            const [current] = await conn.query("SELECT version FROM lesson WHERE id = ?", [lessonId]);
+            conn.release();
+            return res.status(409).json({ error: "Version conflict", currentVersion: current?.version });
+        }
 
         if (Array.isArray(links)) {
             await conn.query("DELETE FROM lesson_resource WHERE lesson_id = ?", [lessonId]);
@@ -562,7 +720,7 @@ router.patch("/lessons/:id", async (req, res) => {
         }
 
         conn.release();
-        res.json({ message: "Lesson and resources updated successfully" });
+        res.json({ message: "Lesson and resources updated successfully", version: clientVersion + 1 });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: "Failed to update lesson" });

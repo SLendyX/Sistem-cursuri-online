@@ -30,21 +30,82 @@ export default function LessonEditor() {
     const [tabValue, setTabValue] = useState(0); // 0 = Edit, 1 = Preview
     const [newLinkUrl, setNewLinkUrl] = useState('');
     const [newLinkLabel, setNewLinkLabel] = useState('');
-
-    const dataRef = useRef({ id: lessonId, title, content, videoUrl, links });
+    const [version, setVersion] = useState(1);
+    const [isLoaded, setIsLoaded] = useState(false);
+    
+    const dataRef = useRef({ id: lessonId, title, content, videoUrl, links, version });
     const isDirtyRef = useRef(false);
-
+    const saveControllerRef = useRef(null);
+    const saveSeqRef = useRef(0);
+    
     useEffect(() => {
-        dataRef.current = { id: lessonId, title, content, videoUrl, links };
-    }, [lessonId, title, content, videoUrl, links]);
+        dataRef.current = { id: lessonId, title, content, videoUrl, links, version };
+    }, [lessonId, title, content, videoUrl, links, version]);
+    
+    const saveLesson = useCallback(async (data, { isUnmounting = false } = {}) => {
+        const seq = ++saveSeqRef.current;
+        if (!isUnmounting) setSaveStatus('saving');
+        const minDelay = new Promise(resolve => setTimeout(resolve, 800));
 
+        // Abort any in-flight save before starting a new one (unless we intentionally keep it)
+        if (!isUnmounting && saveControllerRef.current) saveControllerRef.current.abort();
+        const controller = new AbortController();
+        saveControllerRef.current = controller;
+
+        try {
+            const fetchPromise = fetch(`/api/lessons/${data.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...data, version: data.version }),
+                keepalive: true,
+                signal: controller.signal
+            });
+
+            if (isUnmounting) {
+                fetchPromise.catch(e => console.error("Exit save failed", e));
+                return;
+            }
+
+            const [response] = await Promise.all([fetchPromise, minDelay]);
+            if (!response.ok) {
+                const errBody = await response.json().catch(() => ({}));
+                if (response.status === 409) {
+                    setSaveStatus('error');
+                    if (errBody.currentVersion) setVersion(errBody.currentVersion);
+                    return;
+                }
+                throw new Error(errBody.error || "Save failed");
+            }
+            if (seq !== saveSeqRef.current) return; // Ignore stale response
+
+            setSaveStatus('saved');
+            setLastSaved(new Date());
+            isDirtyRef.current = false;
+            const resJson = await response.json().catch(() => ({}));
+            if (resJson?.version) setVersion(resJson.version);
+
+        } catch (error) {
+            if (error?.name === 'AbortError') return;
+            console.error("Auto-save failed:", error);
+            if (!isUnmounting) setSaveStatus('error');
+        }
+    }, []);
+    
     // 1. LOAD DATA
+    // When lessonId changes: flush pending save for previous lesson, then load the new one
     useEffect(() => {
         let isMounted = true;
-        setTitle(""); setContent(""); setVideoUrl(""); setLinks([]);
 
-        fetch(`/api/lessons/${lessonId}`)
-            .then(async res => {
+        const loadLesson = async () => {
+            if (isDirtyRef.current) {
+                await saveLesson({ ...dataRef.current }, { isUnmounting: true });
+            }
+
+            setIsLoaded(false);
+            setTitle(""); setContent(""); setVideoUrl(""); setLinks([]);
+
+            try {
+                const res = await fetch(`/api/lessons/${lessonId}`);
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error);
 
@@ -54,14 +115,20 @@ export default function LessonEditor() {
                     setContent(content || "");
                     setVideoUrl(video_url || "");
                     setLinks(links || []);
+                    setVersion(data.version || 1);
                     isDirtyRef.current = false;
                     setSaveStatus('saved');
+                    setIsLoaded(true);
                 }
-            })
-            .catch(err => console.error("Load failed", err));
+            } catch (err) {
+                console.error("Load failed", err);
+            }
+        };
+
+        loadLesson();
 
         return () => { isMounted = false; };
-    }, [lessonId]);
+    }, [lessonId, saveLesson]);
 
     // Video embed helper
     const getVideoEmbed = (url) => {
@@ -91,48 +158,19 @@ export default function LessonEditor() {
     };
 
     // 2. SAVE FUNCTION
-    const saveLesson = useCallback(async (data, { isUnmounting = false } = {}) => {
-        if (!isUnmounting) setSaveStatus('saving');
-        const minDelay = new Promise(resolve => setTimeout(resolve, 800));
-
-        try {
-            const fetchPromise = fetch(`/api/lessons/${data.id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data),
-                keepalive: true
-            });
-
-            if (isUnmounting) {
-                fetchPromise.catch(e => console.error("Exit save failed", e));
-                return;
-            }
-
-            const [response] = await Promise.all([fetchPromise, minDelay]);
-            if (!response.ok) throw new Error("Save failed");
-
-            setSaveStatus('saved');
-            setLastSaved(new Date());
-            isDirtyRef.current = false;
-
-        } catch (error) {
-            console.error("Auto-save failed:", error);
-            if (!isUnmounting) setSaveStatus('error');
-        }
-    }, []);
 
     // 3. AUTO-SAVE
     useEffect(() => {
+        if (!isLoaded) return;
         if (!title && !content && !videoUrl) return;
         isDirtyRef.current = true;
 
-        const dataToSave = { id: lessonId, title, content, videoUrl, links };
         const timer = setTimeout(() => {
-            saveLesson(dataToSave);
+            saveLesson(dataRef.current);
         }, 2000);
 
         return () => clearTimeout(timer);
-    }, [title, content, videoUrl, links, lessonId, saveLesson]);
+    }, [title, content, videoUrl, links, lessonId, saveLesson, isLoaded]);
 
     // Cleanup & Exit Saves
     useEffect(() => {

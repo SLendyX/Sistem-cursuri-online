@@ -26,34 +26,48 @@ export default function CourseEditor() {
     const [isPublished, setIsPublished] = useState(false);
     const [thumbnail, setThumbnail] = useState(null);
     const [category, setCategory] = useState('General');
-    const [selectedFile, setSelectedFile] = useState(null);
+    const [version, setVersion] = useState(1);
 
     // UI States
     const [saveStatus, setSaveStatus] = useState('saved');
     const [lastSaved, setLastSaved] = useState(null);
+    const [isLoaded, setIsLoaded] = useState(false);
 
     // Delete Dialog States
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [deleteConfirmText, setDeleteConfirmText] = useState('');
     const [isDeleting, setIsDeleting] = useState(false);
 
-    const dataRef = useRef({ id: courseId, title, description, difficulty, price, isPublished });
+    // REFS: These hold the "Truth" for event listeners (like closing the tab)
+    // that run outside the normal React render cycle.
+    const dataRef = useRef({ id: courseId, title, description, difficulty, price, isPublished, category, version });
     const isDirtyRef = useRef(false);
+    const isMountedRef = useRef(true);
+    const saveControllerRef = useRef(null);
+    const saveSeqRef = useRef(0);
 
+    // Sync Data Ref whenever state changes
     useEffect(() => {
-        dataRef.current = { id: courseId, title, description, difficulty, price, isPublished, category };
-    }, [title, description, difficulty, price, courseId, isPublished, category]);
+        dataRef.current = { id: courseId, title, description, difficulty, price, isPublished, category, version };
+    }, [courseId, title, description, difficulty, price, isPublished, category, version]);
+
+    // Track Mounted Status
+    useEffect(() => {
+        isMountedRef.current = true;
+        return () => { isMountedRef.current = false; };
+    }, []);
 
     // 1. LOAD DATA
     useEffect(() => {
-        let isMounted = true;
-
+        setIsLoaded(false);
+        setSaveStatus('saved');
+        
         fetch(`/api/courses/${courseId}`)
             .then(async res => {
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error);
 
-                if (isMounted) {
+                if (isMountedRef.current) {
                     setTitle(data.nume_curs || "");
                     setDescription(data.descriere || "");
                     setDifficulty(data.dificultate || "usor");
@@ -61,110 +75,180 @@ export default function CourseEditor() {
                     setThumbnail(data.thumbnail_url || "");
                     setIsPublished(Boolean(data.is_published));
                     setCategory(data.category || "General");
+                    setVersion(data.version || 1);
+                    
+                    // Reset dirty flag after load so we don't save immediately
                     isDirtyRef.current = false;
-                    setSaveStatus('saved');
+                    setIsLoaded(true);
                 }
             })
-            .catch(err => showAlert("Load failed: " + err.message, "error"));
-
-        return () => { isMounted = false; };
+            .catch(err => {
+                if (isMountedRef.current) showAlert("Load failed: " + err.message, "error");
+            });
     }, [courseId]);
 
-    // 2. SAVE FUNCTION
-    const saveCourse = useCallback(async (data, fileToUpload) => {
-        setSaveStatus('saving');
-        const minDelay = new Promise(resolve => setTimeout(resolve, 800));
+    // 2. CORE SAVE FUNCTION
+    // Designed to work even if the component is unmounting (fire-and-forget)
+    const performSave = async (dataToSave, fileToUpload = null) => {
+        if (!dataToSave || !dataToSave.id) return;
+
+        const seq = ++saveSeqRef.current;
+
+        // Cancel any in-flight save before starting a new one
+        if (saveControllerRef.current) saveControllerRef.current.abort();
+        const controller = new AbortController();
+        saveControllerRef.current = controller;
+
+        // Only update UI if mounted
+        if (isMountedRef.current) setSaveStatus('saving');
 
         try {
             const formData = new FormData();
-            formData.append('numeCurs', data.title);
-            formData.append('descriere', data.description);
-            formData.append('dificultate', data.difficulty);
-            formData.append('pret', data.price);
-            formData.append('isPublished', isPublished ? 1 : 0);
-            formData.append('category', data.category);
+            formData.append('numeCurs', dataToSave.title);
+            formData.append('descriere', dataToSave.description);
+            formData.append('dificultate', dataToSave.difficulty);
+            formData.append('pret', dataToSave.price);
+            formData.append('isPublished', dataToSave.isPublished ? 1 : 0);
+            formData.append('category', dataToSave.category);
+            formData.append('version', dataToSave.version);
 
             if (fileToUpload) {
                 formData.append('image', fileToUpload);
             }
 
-            const fetchPromise = fetch(`/api/courses/${data.id}`, {
+            // CRITICAL: keepalive: true ensures the request finishes even if you close the tab
+            const response = await fetch(`/api/courses/${dataToSave.id}`, {
                 method: 'PATCH',
                 body: formData,
-                keepalive: true
+                keepalive: true,
+                signal: controller.signal
             });
 
-            const [response] = await Promise.all([fetchPromise, minDelay]);
-
-            if (!response.ok) throw new Error("Save failed");
+            if (!response.ok) {
+                const errBody = await response.json().catch(() => ({}));
+                if (response.status === 409) {
+                    setSaveStatus('error');
+                    if (errBody.currentVersion) setVersion(errBody.currentVersion);
+                    showAlert("Another change was saved elsewhere. Please refresh.", "error");
+                    return;
+                }
+                throw new Error(errBody.error || "Save failed");
+            }
 
             const resData = await response.json();
-            if (resData.newImage) setThumbnail(resData.newImage);
-
-            setSaveStatus('saved');
-            setLastSaved(new Date());
-            isDirtyRef.current = false;
-            setSelectedFile(null);
-
+            if (seq !== saveSeqRef.current) return; // Ignore stale response
+            
+            // UI Updates
+            if (isMountedRef.current) {
+                if (resData.newImage) setThumbnail(resData.newImage);
+                setSaveStatus('saved');
+                setLastSaved(new Date());
+                isDirtyRef.current = false;
+                if (resData?.version) setVersion(resData.version);
+            }
         } catch (error) {
-            console.error("Auto-save failed:", error);
-            setSaveStatus('error');
-            showAlert("Failed to save changes", "error");
+            if (error?.name === 'AbortError') return; // Expected when superseded
+            console.error("Save failed:", error);
+            if (isMountedRef.current) {
+                setSaveStatus('error');
+            }
         }
-    }, [isPublished]);
+    };
 
-    // 3. AUTO-SAVE
+    // 3. FAILSAFE TRIGGERS
+
+    // Trigger A: Debounce (Typing)
     useEffect(() => {
-        if (!title && !isDirtyRef.current) return;
+        if (!isLoaded) return;
+        
+        // Mark as dirty
         isDirtyRef.current = true;
+        setSaveStatus('saving'); // UI feedback immediately
 
-        const dataToSave = { id: courseId, title, description, difficulty, price, category };
-        const timer = setTimeout(() => saveCourse(dataToSave, null), 1500);
+        const timer = setTimeout(() => {
+            if (isDirtyRef.current) {
+                performSave(dataRef.current);
+            }
+        }, 1500);
 
+        // Cleanup: If user keeps typing, clear timer. 
+        // NOTE: We do NOT save on simple cleanup here, we let the timer roll.
+        // The unmount cleanup below handles the "leaving page" case.
         return () => clearTimeout(timer);
-    }, [title, description, difficulty, price, category, courseId, saveCourse, isPublished]);
+    }, [title, description, difficulty, price, category, isPublished]); // Run on any data change
 
-    // 4. FILE UPLOAD
+    // Trigger B: Navigation / Unmount / ID Change
+    // This runs when you leave the page or switch to a different course
+    useEffect(() => {
+        return () => {
+            // If we have unsaved changes when leaving, SAVE IMMEDIATELY
+            if (isDirtyRef.current) {
+                console.log("Unmount detected, forcing save...");
+                performSave(dataRef.current);
+            }
+        };
+    }, []); // Empty dependency array = runs on mount/unmount ONLY
+
+    // Trigger C: Tab Switch (Visibility Change)
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden' && isDirtyRef.current) {
+                console.log("Tab hidden, forcing save...");
+                performSave(dataRef.current);
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, []);
+
+    // Trigger D: Close Tab / Refresh Browser
+    useEffect(() => {
+        const handleBeforeUnload = (e) => {
+            if (isDirtyRef.current) {
+                // Attempt a save
+                performSave(dataRef.current);
+                
+                // Show browser confirmation
+                e.preventDefault();
+                e.returnValue = ''; 
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, []);
+
+    // 4. FILE UPLOAD HANDLER
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         if (file) {
             setThumbnail(URL.createObjectURL(file));
-            setSelectedFile(file);
-            saveCourse(dataRef.current, file);
+            // Save immediately with file
+            performSave(dataRef.current, file);
         }
     };
 
     // 5. DELETE COURSE
     const handleDeleteCourse = async () => {
         if (deleteConfirmText !== title) {
-            showAlert("Course name doesn't match. Please type it exactly.", "warning");
+            showAlert("Course name doesn't match.", "warning");
             return;
         }
 
         setIsDeleting(true);
         try {
-            const res = await fetch(`/api/courses/${courseId}`, {
-                method: 'DELETE'
-            });
-
+            const res = await fetch(`/api/courses/${courseId}`, { method: 'DELETE' });
             const data = await res.json();
 
             if (!res.ok) {
-                if (data.hasStudents) {
-                    showAlert(data.error, "warning");
-                } else {
-                    throw new Error(data.error);
-                }
+                showAlert(data.error || "Could not delete", "error");
                 setIsDeleting(false);
                 return;
             }
 
-            showAlert("Course deleted successfully", "success");
+            showAlert("Course deleted", "success");
             navigate('/instructor/my_courses');
-
         } catch (err) {
-            console.error(err);
-            showAlert(err.message || "Failed to delete course", "error");
+            showAlert(err.message, "error");
             setIsDeleting(false);
         }
     };
@@ -228,9 +312,6 @@ export default function CourseEditor() {
                                 Upload Image
                                 <input type="file" hidden accept="image/*" onChange={handleFileChange} />
                             </Button>
-                            <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 1 }}>
-                                Recommended size: 1280x720 (16:9)
-                            </Typography>
                         </Box>
                     </Box>
 
@@ -262,11 +343,8 @@ export default function CourseEditor() {
                     </Stack>
 
                     <TextField
-                        select
-                        label="Category"
-                        fullWidth
-                        value={category}
-                        onChange={(e) => setCategory(e.target.value)}
+                        select label="Category" fullWidth
+                        value={category} onChange={(e) => setCategory(e.target.value)}
                     >
                         <MenuItem value="Programming">Programming</MenuItem>
                         <MenuItem value="Design">Design</MenuItem>
@@ -287,29 +365,16 @@ export default function CourseEditor() {
                                 color="primary"
                             />
                         }
-                        label={
-                            <Typography>
-                                Published
-                                <Typography component="span" variant="caption" sx={{ ml: 1, color: 'text.secondary' }}>
-                                    (Visible to students)
-                                </Typography>
-                            </Typography>
-                        }
+                        label="Published (Visible to students)"
                     />
                 </Stack>
             </Paper>
 
             {/* Danger Zone */}
             <Paper sx={{ p: 3, borderColor: 'error.main', border: 2 }}>
-                <Typography variant="h6" color="error" gutterBottom>
-                    Danger Zone
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    Once you delete a course, there is no going back. Please be certain.
-                </Typography>
+                <Typography variant="h6" color="error" gutterBottom>Danger Zone</Typography>
                 <Button
-                    variant="outlined"
-                    color="error"
+                    variant="outlined" color="error"
                     startIcon={<DeleteForeverIcon />}
                     onClick={() => setDeleteDialogOpen(true)}
                 >
@@ -317,39 +382,22 @@ export default function CourseEditor() {
                 </Button>
             </Paper>
 
-            {/* Delete Confirmation Dialog */}
             <Dialog open={deleteDialogOpen} onClose={() => !isDeleting && setDeleteDialogOpen(false)} maxWidth="sm" fullWidth>
-                <DialogTitle sx={{ color: 'error.main' }}>
-                    Delete Course: {title}
-                </DialogTitle>
+                <DialogTitle sx={{ color: 'error.main' }}>Delete Course: {title}</DialogTitle>
                 <DialogContent>
-                    <Alert severity="warning" sx={{ mb: 2 }}>
-                        This action cannot be undone. All chapters, lessons, and resources will be permanently deleted.
-                    </Alert>
                     <DialogContentText sx={{ mb: 2 }}>
-                        To confirm deletion, please type the exact course name below:
+                        Type the course name to confirm deletion.
                     </DialogContentText>
                     <TextField
-                        autoFocus
-                        fullWidth
-                        variant="outlined"
-                        placeholder={title}
-                        value={deleteConfirmText}
-                        onChange={(e) => setDeleteConfirmText(e.target.value)}
+                        autoFocus fullWidth variant="outlined" placeholder={title}
+                        value={deleteConfirmText} onChange={(e) => setDeleteConfirmText(e.target.value)}
                         disabled={isDeleting}
                     />
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setDeleteDialogOpen(false)} disabled={isDeleting}>
-                        Cancel
-                    </Button>
-                    <Button
-                        onClick={handleDeleteCourse}
-                        color="error"
-                        variant="contained"
-                        disabled={isDeleting || deleteConfirmText !== title}
-                    >
-                        {isDeleting ? "Deleting..." : "Delete Forever"}
+                    <Button onClick={() => setDeleteDialogOpen(false)} disabled={isDeleting}>Cancel</Button>
+                    <Button onClick={handleDeleteCourse} color="error" variant="contained" disabled={isDeleting || deleteConfirmText !== title}>
+                        Delete
                     </Button>
                 </DialogActions>
             </Dialog>

@@ -21,38 +21,29 @@ export default function ChapterEditor() {
     const [isPublished, setIsPublished] = useState(false);
     const [saveStatus, setSaveStatus] = useState('saved');
     const [lastSaved, setLastSaved] = useState(null);
+    const [version, setVersion] = useState(1);
+    const [isLoaded, setIsLoaded] = useState(false);
 
-    const dataRef = useRef({ id: chapterId, title, isPublished });
+    const dataRef = useRef({ id: chapterId, title, isPublished, version });
+    const currentIdRef = useRef(chapterId);
     const isDirtyRef = useRef(false);
+    const saveControllerRef = useRef(null);
+    const saveSeqRef = useRef(0);
 
     useEffect(() => {
-        dataRef.current = { id: chapterId, title, isPublished };
-    }, [chapterId, title, isPublished]);
-
-    useEffect(() => {
-        let isMounted = true;
-        setTitle(""); 
-        
-        fetch(`/api/chapters/${chapterId}`)
-            .then(async res => {
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error);
-
-                if (isMounted) {
-                    setTitle(data.title || "");
-                    setIsPublished(Boolean(data.is_published));
-                    isDirtyRef.current = false;
-                    setSaveStatus('saved');
-                }
-            })
-            .catch(err => console.error("Load failed", err));
-
-        return () => { isMounted = false; };
-    }, [chapterId]);
+        // Keep dataRef in sync with latest fields but use the stable id stored in currentIdRef
+        dataRef.current = { id: currentIdRef.current, title, isPublished, version };
+    }, [title, isPublished, version]);
 
     const saveChapter = useCallback(async (data, { isUnmounting = false } = {}) => {
+        const seq = ++saveSeqRef.current;
         if (!isUnmounting) setSaveStatus('saving');
         const minDelay = new Promise(resolve => setTimeout(resolve, 800));
+
+        // Abort any in-flight save before starting a new one (unless we intentionally keep it)
+        if (!isUnmounting && saveControllerRef.current) saveControllerRef.current.abort();
+        const controller = new AbortController();
+        saveControllerRef.current = controller;
 
         try {
             const fetchPromise = fetch(`/api/chapters/${data.id}`, {
@@ -60,9 +51,11 @@ export default function ChapterEditor() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     title: data.title,
-                    isPublished: data.isPublished ? 1 : 0
+                    isPublished: data.isPublished ? 1 : 0,
+                    version: data.version
                 }),
-                keepalive: true
+                keepalive: true,
+                signal: controller.signal
             });
 
             if (isUnmounting) {
@@ -71,35 +64,99 @@ export default function ChapterEditor() {
             }
 
             const [response] = await Promise.all([fetchPromise, minDelay]);
-            if (!response.ok) throw new Error("Save failed");
+            if (!response.ok) {
+                const errBody = await response.json().catch(() => ({}));
+                if (response.status === 409) {
+                    setSaveStatus('error');
+                    if (errBody.currentVersion) setVersion(errBody.currentVersion);
+                    return;
+                }
+                throw new Error(errBody.error || "Save failed");
+            }
+            if (seq !== saveSeqRef.current) return; // Ignore stale response
 
             setSaveStatus('saved');
             setLastSaved(new Date());
             isDirtyRef.current = false;
+            const resJson = await response.json().catch(() => ({}));
+            if (resJson?.version) setVersion(resJson.version);
 
         } catch (error) {
+            if (error?.name === 'AbortError') return;
             console.error("Auto-save failed:", error);
             if (!isUnmounting) setSaveStatus('error');
         }
     }, []);
 
+    // When chapterId changes: flush any pending save for the previous chapter, then load the new one
     useEffect(() => {
+        let isMounted = true;
+
+        const loadChapter = async () => {
+            // Finish pending save for previous chapter before loading the new one
+            if (isDirtyRef.current) {
+                const prevSnapshot = { ...dataRef.current };
+                await saveChapter(prevSnapshot, { isUnmounting: true });
+            }
+
+            setIsLoaded(false);
+            setTitle(""); 
+            
+            try {
+                const res = await fetch(`/api/chapters/${chapterId}`);
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+
+                if (isMounted) {
+                    currentIdRef.current = chapterId; // update stable id only after load succeeds
+                    dataRef.current = {
+                        id: chapterId,
+                        title: data.title || "",
+                        isPublished: Boolean(data.is_published),
+                        version: data.version || 1
+                    };
+
+                    setTitle(data.title || "");
+                    setIsPublished(Boolean(data.is_published));
+                    setVersion(data.version || 1);
+                    isDirtyRef.current = false;
+                    setSaveStatus('saved');
+                    setIsLoaded(true);
+                }
+            } catch (err) {
+                console.error("Load failed", err);
+            }
+        };
+
+        loadChapter();
+
+        return () => { isMounted = false; };
+    }, [chapterId, saveChapter]);
+
+    useEffect(() => {
+        if (!isLoaded) return;
         if (!title && !isDirtyRef.current) return;
         isDirtyRef.current = true;
-        const dataToSave = { id: chapterId, title, isPublished };
-        const timer = setTimeout(() => saveChapter(dataToSave), 1500);
+        const snapshot = { ...dataRef.current };
+        const timer = setTimeout(() => saveChapter(snapshot), 1500);
         return () => clearTimeout(timer);
-    }, [title, isPublished, chapterId, saveChapter]);
+    }, [title, isPublished, saveChapter, isLoaded]);
 
     useEffect(() => {
         return () => {
-            if (isDirtyRef.current) saveChapter(dataRef.current, { isUnmounting: true });
+            if (isDirtyRef.current) {
+                const snapshot = { ...dataRef.current };
+                saveChapter(snapshot, { isUnmounting: true });
+            }
         };
     }, [saveChapter]);
 
     useEffect(() => {
         const handleBeforeUnload = () => {
-            if (isDirtyRef.current) saveChapter(dataRef.current, { isUnmounting: true });
+            if (isDirtyRef.current) {
+                const snapshot = { ...dataRef.current };
+                saveChapter(snapshot, { isUnmounting: true });
+            }
         };
         window.addEventListener('beforeunload', handleBeforeUnload);
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
@@ -136,6 +193,8 @@ export default function ChapterEditor() {
             </Box>
         );
     }
+
+    console.log(dataRef.current, isDirtyRef.current)
 
     // Otherwise, show the normal Chapter Editor
     return (
