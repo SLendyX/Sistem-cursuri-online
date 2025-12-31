@@ -61,7 +61,7 @@ export default function CourseEditor() {
     useEffect(() => {
         setIsLoaded(false);
         setSaveStatus('saved');
-        
+
         fetch(`/api/courses/${courseId}`)
             .then(async res => {
                 const data = await res.json();
@@ -76,7 +76,7 @@ export default function CourseEditor() {
                     setIsPublished(Boolean(data.is_published));
                     setCategory(data.category || "General");
                     setVersion(data.version || 1);
-                    
+
                     // Reset dirty flag after load so we don't save immediately
                     isDirtyRef.current = false;
                     setIsLoaded(true);
@@ -127,17 +127,30 @@ export default function CourseEditor() {
             if (!response.ok) {
                 const errBody = await response.json().catch(() => ({}));
                 if (response.status === 409) {
+                    showAlert("Content was updated elsewhere. Reloading...", "warning");
+
+                    // Reload fresh data from server
+                    const freshData = await fetch(`/api/courses/${dataToSave.id}`)
+                        .then(r => r.json());
+
+                    // Update local state with server data
+                    setTitle(freshData.nume_curs || "");
+                    setDescription(freshData.descriere || "");
+                    setDifficulty(freshData.dificultate || "usor");
+                    setPrice(freshData.pret || "");
+                    setVersion(freshData.version);
+
                     setSaveStatus('error');
-                    if (errBody.currentVersion) setVersion(errBody.currentVersion);
-                    showAlert("Another change was saved elsewhere. Please refresh.", "error");
+                    showAlert("Your changes were discarded. Please review and save again.", "error");
                     return;
                 }
+
                 throw new Error(errBody.error || "Save failed");
             }
 
             const resData = await response.json();
             if (seq !== saveSeqRef.current) return; // Ignore stale response
-            
+
             // UI Updates
             if (isMountedRef.current) {
                 if (resData.newImage) setThumbnail(resData.newImage);
@@ -160,7 +173,7 @@ export default function CourseEditor() {
     // Trigger A: Debounce (Typing)
     useEffect(() => {
         if (!isLoaded) return;
-        
+
         // Mark as dirty
         isDirtyRef.current = true;
         setSaveStatus('saving'); // UI feedback immediately
@@ -207,10 +220,10 @@ export default function CourseEditor() {
             if (isDirtyRef.current) {
                 // Attempt a save
                 performSave(dataRef.current);
-                
+
                 // Show browser confirmation
                 e.preventDefault();
-                e.returnValue = ''; 
+                e.returnValue = '';
             }
         };
         window.addEventListener('beforeunload', handleBeforeUnload);
@@ -264,13 +277,6 @@ export default function CourseEditor() {
 
     return (
         <Box maxWidth="md" mx="auto">
-            <Breadcrumbs
-                customItems={[
-                    { label: 'Instructor Panel', path: '/instructor' },
-                    { label: 'My Courses', path: '/instructor/my_courses' },
-                    { label: title || 'Edit Course', path: '' }
-                ]}
-            />
             {/* Header */}
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}
                 sx={{ bgcolor: 'background.paper', p: 2, borderRadius: 2, boxShadow: 1 }}>

@@ -130,7 +130,7 @@ router.get("/instructor/:id", async (req, res) => {
             `SELECT 
                 COUNT(DISTINCT c.curs_id) as total_courses,
                 SUM(c.studenti_inrolati) as total_students,
-                AVG(c.rating) as avg_rating
+                AVG(NULLIF(c.rating, 0)) as avg_rating
              FROM curs c
              WHERE c.autor_id = ? AND c.is_published = 1`,
             [instructorId]

@@ -124,7 +124,7 @@ export default function LessonPlayer() {
                 <Container maxWidth="lg">
                     <Breadcrumbs
                         customItems={[
-                            { label: 'Courses', path: '/courses' },
+                            { label: 'Courses', path: '/my-learning' },
                             { label: courseInfo?.nume_curs || 'Course', path: `/courses/${courseId}` },
                             { label: 'Learn', path: `/course/${courseId}/learn` },
                             { label: lessonData?.title || 'Lesson', path: '' }

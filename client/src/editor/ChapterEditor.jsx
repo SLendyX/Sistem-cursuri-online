@@ -67,10 +67,22 @@ export default function ChapterEditor() {
             if (!response.ok) {
                 const errBody = await response.json().catch(() => ({}));
                 if (response.status === 409) {
+                    showAlert("Content was updated elsewhere. Reloading...", "warning");
+
+                    // Reload fresh data from server
+                    const freshData = await fetch(`/api/chapters/${chapterId}`)
+                        .then(r => r.json());
+
+                    // Update local state with server data
+                    setTitle(freshData.title || "");
+                    setIsPublished(Boolean(freshData.is_published));
+                    setVersion(freshData.version || 1);
+
                     setSaveStatus('error');
-                    if (errBody.currentVersion) setVersion(errBody.currentVersion);
+                    showAlert("Your changes were discarded. Please review and save again.", "error");
                     return;
                 }
+
                 throw new Error(errBody.error || "Save failed");
             }
             if (seq !== saveSeqRef.current) return; // Ignore stale response

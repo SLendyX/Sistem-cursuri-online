@@ -22,7 +22,7 @@ export default function CourseCard({ curs, ...props }) {
   // Handle instructor click - stop propagation and navigate to instructor page
   const handleInstructorClick = (e) => {
     e.stopPropagation(); // Prevent card click
-    navigate(`/instructor/${autor_id}`);
+    navigate(`/instructor_profile/${autor_id}`);
   };
 
   return (

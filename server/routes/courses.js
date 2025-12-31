@@ -609,6 +609,79 @@ router.get("/chapters/:id", async (req, res) => {
     }
 });
 
+router.get("/courses/:id/structure", async (req, res) => {
+    const courseId = req.params.id;
+    
+    try {
+        const conn = await pool.getConnection();
+        
+        // Get course
+        const [course] = await conn.query(
+            "SELECT * FROM curs WHERE curs_id = ?", 
+            [courseId]
+        );
+        
+        if (!course) {
+            conn.release();
+            return res.status(404).json({ error: "Course not found" });
+        }
+        
+        // Get ALL chapters AND lessons in one optimized query
+        const structure = await conn.query(`
+            SELECT 
+                ch.id as chapter_id,
+                ch.title as chapter_title,
+                ch.position as chapter_position,
+                ch.is_published as chapter_published,
+                l.id as lesson_id,
+                l.title as lesson_title,
+                l.position as lesson_position,
+                l.is_published as lesson_published
+            FROM chapter ch
+            LEFT JOIN lesson l ON ch.id = l.chapter_id
+            WHERE ch.curs_id = ?
+            ORDER BY ch.position ASC, l.position ASC
+        `, [courseId]);
+        
+        // Transform flat result into nested structure
+        const chaptersMap = new Map();
+        
+        structure.forEach(row => {
+            if (!chaptersMap.has(row.chapter_id)) {
+                chaptersMap.set(row.chapter_id, {
+                    id: row.chapter_id,
+                    title: row.chapter_title,
+                    position: row.chapter_position,
+                    is_published: row.chapter_published,
+                    lessons: []
+                });
+            }
+            
+            // Add lesson if it exists (LEFT JOIN may have nulls)
+            if (row.lesson_id) {
+                chaptersMap.get(row.chapter_id).lessons.push({
+                    id: row.lesson_id,
+                    title: row.lesson_title,
+                    position: row.lesson_position,
+                    is_published: row.lesson_published
+                });
+            }
+        });
+        
+        conn.release();
+        
+        res.json({
+            course,
+            chapters: Array.from(chaptersMap.values())
+        });
+        
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Failed to load course structure" });
+    }
+});
+
+
 router.patch("/chapters/:id", requireProfessor, async (req, res) => {
     const userId = req.userId;
     const chapterId = req.params.id;

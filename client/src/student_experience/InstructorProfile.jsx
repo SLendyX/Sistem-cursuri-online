@@ -17,7 +17,7 @@ export default function InstructorProfile() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetch(`/api/instructor/${instructorId}`)
+        fetch(`/api/users/instructor/${instructorId}`)
             .then(async res => {
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error);

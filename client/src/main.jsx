@@ -62,7 +62,7 @@ createRoot(document.getElementById('root')).render(
               <Route path=":courseId" element={<CourseLanding />} />
             </Route>
             {/* Instructor Public Profile */}
-            <Route path="/instructor/:instructorId" element={<InstructorProfile />} />
+            <Route path="/instructor_profile/:instructorId" element={<InstructorProfile />} />
           </Route>
 
           {/* ================================================= */}

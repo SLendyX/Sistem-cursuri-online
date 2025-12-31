@@ -1,5 +1,6 @@
+// client/src/editor/CourseEditorLayout.jsx
 import React, { useState, useEffect } from "react";
-import { Outlet, useNavigate, useParams, useMatch, useLocation } from "react-router"; // 👈 Added useLocation
+import { Outlet, useNavigate, useParams, useMatch, useLocation } from "react-router";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -19,12 +20,14 @@ import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import ArticleIcon from '@mui/icons-material/Article';
 import FolderIcon from '@mui/icons-material/Folder';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import DeleteIcon from '@mui/icons-material/Delete'
+import DeleteIcon from '@mui/icons-material/Delete';
+
+// 1. IMPORT BREADCRUMBS
+import Breadcrumbs from '../components/Breadcrumbs';
 
 const drawerWidth = 300;
 
-// --- 1. Updated Sortable Item (Accepts onDoubleClick) ---
-function SortableSidebarItem({ id, title, type, active, onClick, onDoubleClick, onContextMenu }) { // 👈 Added onDoubleClick
+function SortableSidebarItem({ id, title, type, active, onClick, onDoubleClick, onContextMenu }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
 
     const style = {
@@ -44,7 +47,7 @@ function SortableSidebarItem({ id, title, type, active, onClick, onDoubleClick, 
             <ListItemButton
                 selected={active}
                 onClick={onClick}
-                onDoubleClick={onDoubleClick} // 👈 Connected Handler
+                onDoubleClick={onDoubleClick}
                 onContextMenu={onContextMenu}
             >
                 <ListItemIcon>
@@ -56,10 +59,9 @@ function SortableSidebarItem({ id, title, type, active, onClick, onDoubleClick, 
     );
 }
 
-// --- 2. Main Layout Component ---
 export default function CourseEditorLayout() {
     const navigate = useNavigate();
-    const location = useLocation(); // 👈 To read query params
+    const location = useLocation();
     const { courseId, chapterId } = useParams();
     const { showAlert } = React.useContext(LoggedInContext);
 
@@ -72,18 +74,14 @@ export default function CourseEditorLayout() {
     const lessonMatch = useMatch("/instructor/course/:courseId/edit/chapter/:chapterId/lesson/:lessonId");
     const currentLessonId = lessonMatch?.params?.lessonId;
 
-    // --- NEW LOGIC: Determine Mode ---
-    // We are in "Lesson List Mode" (ChapterMode) ONLY if:
-    // 1. We are deep inside a lesson (lessonMatch is true)
-    // 2. OR we explicitly have '?view=lessons' in the URL (from double click)
     const searchParams = new URLSearchParams(location.search);
     const isLessonView = searchParams.get('view') === 'lessons';
-
     const isChapterMode = Boolean(currentLessonId || isLessonView);
 
     // --- State ---
     const [chapters, setChapters] = useState([]);
     const [lessons, setLessons] = useState([]);
+    const [courseTitle, setCourseTitle] = useState(""); // 2. NEW STATE FOR TITLE
 
     // Derived state
     const activeList = isChapterMode ? lessons : chapters;
@@ -92,6 +90,47 @@ export default function CourseEditorLayout() {
     // --- Context Menu State ---
     const [contextMenu, setContextMenu] = useState(null);
     const [selectedItem, setSelectedItem] = useState(null);
+
+    // 3. FETCH COURSE TITLE ON MOUNT
+    useEffect(() => {
+        fetch(`/api/courses/${courseId}`)
+            .then(res => res.json())
+            .then(data => {
+                if(data.nume_curs) setCourseTitle(data.nume_curs);
+            })
+            .catch(console.error);
+    }, [courseId]);
+
+    // 4. GENERATE BREADCRUMBS
+    const getBreadcrumbs = () => {
+        // Base Path
+        const items = [
+            { label: 'Instructor Panel', path: '/instructor' },
+            { label: 'My Courses', path: '/instructor/my_courses' },
+            { label: courseTitle || 'Course', path: `/instructor/course/${courseId}/edit` }
+        ];
+
+        // If inside a Chapter
+        if (currentChapterId) {
+            const currentChapter = chapters.find(c => c.id === Number(currentChapterId));
+            items.push({
+                label: currentChapter?.title || 'Chapter',
+                // Clicking this keeps us in "edit details" mode unless we explicitly want list view
+                path: `/instructor/course/${courseId}/edit/chapter/${currentChapterId}`
+            });
+        }
+
+        // If inside a Lesson
+        if (currentLessonId) {
+            const currentLesson = lessons.find(l => l.id === Number(currentLessonId));
+            items.push({
+                label: currentLesson?.title || 'Lesson',
+                path: '' // Current page, no link needed
+            });
+        }
+
+        return items;
+    };
 
     const handleContextMenu = (event, item) => {
         event.preventDefault();
@@ -172,31 +211,22 @@ export default function CourseEditorLayout() {
             });
     }
 
-    // --- CLICK HANDLERS (UPDATED) ---
-
-    // 1. Single Click: Just Select / Edit Properties
+    // --- CLICK HANDLERS ---
     function handleItemClick(id) {
         if (isChapterMode) {
-            // Already inside a chapter? Click opens the Lesson Editor
             navigate(`chapter/${currentChapterId}/lesson/${id}`);
         } else {
-            // Viewing Chapter List? Single click opens Chapter Editor
-            // BUT keeps the sidebar showing chapters (no ?view=lessons)
             navigate(`chapter/${id}`);
         }
     }
 
-    // 2. Double Click: Drill Down
     function handleItemDoubleClick(id) {
         if (!isChapterMode) {
-            // Switch to "Lesson View" for this chapter
             navigate(`chapter/${id}?view=lessons`);
         }
     }
 
-    // 3. Back Button
     function handleBackClick() {
-        // Go back to the Course Root (clears ID and query params)
         navigate(`/instructor/course/${courseId}/edit`);
     }
 
@@ -205,12 +235,11 @@ export default function CourseEditorLayout() {
         setLessons([])
     }, [courseId]);
 
-    // Update lessons when we enter a chapter (either via ID or view mode)
     useEffect(() => {
         if (chapterId) {
             updateLessons();
         }
-    }, [chapterId]); // Removed explicit null check, standard check is fine
+    }, [chapterId]);
 
 
     function addModule() {
@@ -233,8 +262,6 @@ export default function CourseEditorLayout() {
             .then(async res => {
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error);
-
-                // Ensure type is set for delete logic
                 const formattedData = data.map(c => ({ ...c, type: 'chapter' }));
                 setChapters(formattedData);
             })
@@ -257,12 +284,11 @@ export default function CourseEditorLayout() {
     }
 
     function updateLessons() {
-        if (!chapterId) return; // Safety check
+        if (!chapterId) return;
         fetch(`/api/chapters/${chapterId}/lessons?t=${new Date().getTime()}`)
             .then(async res => {
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error);
-                // Ensure type is set for delete logic
                 const formattedData = data.map(l => ({ ...l, type: 'lesson' }));
                 setLessons(formattedData)
             })
@@ -288,9 +314,7 @@ export default function CourseEditorLayout() {
                     }}
                 >
                     <Box sx={{ overflow: 'auto', p: 2 }}>
-                        {/* HEADER */}
                         {isChapterMode ? (
-                            // STATE 1: Deep inside a Chapter (Viewing Lesson List)
                             <Box sx={{ mb: 2 }}>
                                 <Button
                                     startIcon={<ArrowBackIcon />}
@@ -308,9 +332,7 @@ export default function CourseEditorLayout() {
                                 </Typography>
                             </Box>
                         ) : (
-                            // STATE 2: Viewing Chapter List
                             <Box sx={{ mb: 2 }}>
-                                {/* 👇 NEW: If a chapter is selected, show button to go back to Root */}
                                 {chapterId && (
                                     <Button
                                         startIcon={<ArrowBackIcon />}
@@ -326,18 +348,13 @@ export default function CourseEditorLayout() {
                                     Course Curriculum
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary">
-                                    {/* Context-aware helper text */}
-                                    {chapterId
-                                        ? "Editing Chapter Details"
-                                        : "Double-click to edit lessons"
-                                    }
+                                    {chapterId ? "Editing Chapter Details" : "Double-click to edit lessons"}
                                 </Typography>
                             </Box>
                         )}
 
                         <Divider sx={{ mb: 2 }} />
 
-                        {/* DRAG AND DROP LIST */}
                         <DndContext
                             sensors={sensors}
                             collisionDetection={closestCenter}
@@ -352,10 +369,9 @@ export default function CourseEditorLayout() {
                                             id={item.id}
                                             title={item.title}
                                             type={item.type}
-                                            // 👈 Logic: Active depends on what list is showing
                                             active={isChapterMode ? Number(currentLessonId) === item.id : Number(currentChapterId) === item.id}
                                             onClick={() => handleItemClick(item.id)}
-                                            onDoubleClick={() => handleItemDoubleClick(item.id)} // 👈 Double Click
+                                            onDoubleClick={() => handleItemDoubleClick(item.id)}
                                             onContextMenu={(e) => handleContextMenu(e, item)}
                                         />
                                     ))}
@@ -374,7 +390,6 @@ export default function CourseEditorLayout() {
                     </Box>
                 </Drawer>
 
-                {/* Popups & Dialogs */}
                 <Menu
                     open={contextMenu !== null}
                     onClose={handleCloseMenu}
@@ -402,6 +417,8 @@ export default function CourseEditorLayout() {
 
                 {/* MAIN CONTENT */}
                 <Box component="main" sx={{ flexGrow: 1, p: 3, overflow: 'auto', width: "100%" }}>
+                    {/* 5. RENDER BREADCRUMBS BEFORE OUTLET */}
+                    <Breadcrumbs customItems={getBreadcrumbs()} />
                     <Outlet context={{ items: activeList, setItems: setActiveList }} />
                 </Box>
             </Box>

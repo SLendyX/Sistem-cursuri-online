@@ -34,35 +34,37 @@ export default function CoursePlayerLayout() {
 
     // Load course structure
     useEffect(() => {
-        Promise.all([
-            fetch(`/api/courses/${courseId}`).then(r => r.json()),
-            fetch(`/api/courses/${courseId}/chapters`).then(r => r.json()),
-            fetch(`/api/progress/${courseId}`).then(r => r.json())
-        ])
-        .then(([course, chaps, progress]) => {
-            setCourseInfo(course);
-            
-            // Load lessons for each chapter
-            const chapterPromises = chaps.map(chapter =>
-                fetch(`/api/chapters/${chapter.id}/lessons`).then(r => r.json())
-                    .then(lessons => ({ ...chapter, lessons }))
-            );
-            
-            return Promise.all([Promise.all(chapterPromises), progress]);
-        })
-        .then(([chaptersWithLessons, progress]) => {
-            setChapters(chaptersWithLessons);
-            setCompletedLessons(new Set(progress.completedLessonIds || []));
-            
-            // Auto-expand first chapter
-            if (chaptersWithLessons.length > 0) {
-                setExpandedChapters({ [chaptersWithLessons[0].id]: true });
+        let cancelled = false;
+
+        const load = async () => {
+            try {
+                const res = await fetch(`/api/courses/${courseId}/structure`);
+                if (!res.ok) throw new Error("Failed to load course structure");
+                const { course, chapters } = await res.json();
+
+                const progRes = await fetch(`/api/progress/${courseId}`);
+                if (!progRes.ok) throw new Error("Failed to load progress");
+                const progress = await progRes.json();
+
+                if (cancelled) return;
+                setCourseInfo(course);
+                setChapters(chapters || []);
+                setCompletedLessons(new Set(progress.completedLessonIds || []));
+
+                const firstWithLessons = (chapters || []).find(
+                    (ch) => ch.lessons && ch.lessons.length > 0
+                );
+                if (firstWithLessons) {
+                    setExpandedChapters({ [firstWithLessons.id]: true });
+                }
+            } catch (err) {
+                console.error(err);
+                if (!cancelled) showAlert("Failed to load course content", "error");
             }
-        })
-        .catch(err => {
-            console.error(err);
-            showAlert("Failed to load course content", "error");
-        });
+        };
+
+        load();
+        return () => { cancelled = true; };
     }, [courseId]);
 
     const handleToggleChapter = (chapterId) => {

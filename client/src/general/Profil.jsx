@@ -44,7 +44,7 @@ export default function Profile() {
     const handleSaveProfile = async () => {
         setIsSaving(true);
         try {
-            const res = await fetch("/api/profile", {
+            const res = await fetch("/api/users/profile", {
                 method: 'PATCH',
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ name: editedName })
@@ -72,7 +72,7 @@ export default function Profile() {
 
         setIsDeleting(true);
         try {
-            const res = await fetch("/api/profile", {
+            const res = await fetch("/api/users/profile", {
                 method: 'DELETE'
             });
 
