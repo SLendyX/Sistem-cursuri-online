@@ -1,103 +1,92 @@
-// client/src/hooks/useAutoSave.js
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-export default function useAutoSave({ data, onSave, isLoaded = true, debounceMs = 1500 }) {
-    const [saveStatus, setSaveStatus] = useState('saved'); // 'saved', 'saving', 'error'
+export default function useAutoSave({ 
+    data, 
+    recordId,        // NEW: Pass lessonId/courseId here to detect switching
+    onSave,          // Async function that returns the updated version
+    onConflict,      // NEW: specific handler for 409 errors
+    debounceMs = 2000 
+}) {
+    const [status, setStatus] = useState('saved');
     const [lastSaved, setLastSaved] = useState(null);
     
-    // Refs hold the latest values for the save function to use
+    // Refs for state that shouldn't trigger re-renders
     const dataRef = useRef(data);
-    const onSaveRef = useRef(onSave);
+    const prevIdRef = useRef(recordId);
     const isDirtyRef = useRef(false);
-    const controllerRef = useRef(null);
-    const requestSeqRef = useRef(0);
+    const saveTimerRef = useRef(null);
 
-    // Keep refs synchronized
+    // 1. Sync Data Ref
     useEffect(() => {
         dataRef.current = data;
-        onSaveRef.current = onSave;
-    }, [data, onSave]);
+    }, [data]);
 
-    const triggerSave = useCallback(async () => {
-        if (!isDirtyRef.current || !isLoaded) return;
-
-        const dataToSave = dataRef.current;
-        const seq = ++requestSeqRef.current;
-
-        // Abort any in-flight request before starting a new one
-        if (controllerRef.current) controllerRef.current.abort();
-        const controller = new AbortController();
-        controllerRef.current = controller;
-
-        setSaveStatus('saving');
+    // 2. The Core Save Logic
+    const performSave = useCallback(async (dataToSave, isUnmount = false) => {
+        if (!isUnmount) setStatus('saving');
         
         try {
-            await onSaveRef.current(dataToSave, { signal: controller.signal });
-            if (seq !== requestSeqRef.current) return; // Ignore stale response
-            setSaveStatus('saved');
-            setLastSaved(new Date());
-            isDirtyRef.current = false;
-        } catch (error) {
-            if (error?.name === 'AbortError') return; // Expected when superseded
-            console.error("Auto-save failed:", error);
-            setSaveStatus('error');
+            // Your onSave should return the new version number
+            await onSave(dataToSave); 
+            
+            if (!isUnmount) {
+                setStatus('saved');
+                setLastSaved(new Date());
+                isDirtyRef.current = false;
+            }
+        } catch (err) {
+            console.error("AutoSave failed:", err);
+            
+            // Handle 409 Conflict specifically
+            if (err.status === 409 && onConflict) {
+                setStatus('error'); // or 'conflict'
+                onConflict(); 
+            } else {
+                if (!isUnmount) setStatus('error');
+            }
         }
-    }, [isLoaded]);
+    }, [onSave, onConflict]);
 
-    // 1. AUTO-SAVE TRIGGER (Fixed Infinite Loop)
-    // We stringify the data to compare CONTENT, not object REFERENCE.
-    // This prevents loops when the parent component re-renders.
-    const dataString = JSON.stringify(data);
-
+    // 3. Handle ID Switching (The "Flush" Logic)
+    // If user clicks Lesson B while Lesson A is dirty, save A immediately.
     useEffect(() => {
-        if (!isLoaded) return;
-        
-        // If the data content is exactly the same as the last successful save, don't trigger.
-        // (Optional optimization: You can add a ref to store 'lastSavedString' if needed, 
-        // but checking dirty + debounce is usually enough if we rely on dataString dependency)
-        
+        if (prevIdRef.current !== recordId) {
+            if (isDirtyRef.current) {
+                console.log(`Switching ID from ${prevIdRef.current} to ${recordId} - Flushing save`);
+                performSave(dataRef.current, true); // True = treat as unmount/background save
+            }
+            // Reset for new ID
+            isDirtyRef.current = false;
+            setStatus('saved');
+            prevIdRef.current = recordId;
+        }
+    }, [recordId, performSave]);
+
+    // 4. Trigger Auto-Save on Change
+    useEffect(() => {
+        // Don't save on initial load or if data hasn't actually changed
+        // (You might want a deep comparison here eventually)
+        if (JSON.stringify(data) === JSON.stringify(dataRef.current) && !isDirtyRef.current) return;
+
         isDirtyRef.current = true;
-        
-        const timer = setTimeout(() => {
-            triggerSave();
+        setStatus('saving');
+
+        if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = setTimeout(() => {
+            performSave(dataRef.current);
         }, debounceMs);
 
-        return () => clearTimeout(timer);
-    // CRITICAL FIX: Depend on 'dataString', not 'data' object.
-    }, [dataString, isLoaded, debounceMs, triggerSave]); 
+        return () => clearTimeout(saveTimerRef.current);
+    }, [data, debounceMs, performSave]);
 
-
-    // 2. Save on Unmount / Navigation
+    // 5. Cleanup on Unmount
     useEffect(() => {
         return () => {
-            controllerRef.current?.abort();
-            if (isDirtyRef.current) triggerSave(); 
-        };
-    }, [triggerSave]);
-
-    // 3. Save on Tab Close
-    useEffect(() => {
-        const handleBeforeUnload = (e) => {
             if (isDirtyRef.current) {
-                triggerSave();
-                e.preventDefault();
-                e.returnValue = ''; 
+                performSave(dataRef.current, true);
             }
         };
-        window.addEventListener('beforeunload', handleBeforeUnload);
-        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-    }, [triggerSave]);
+    }, [performSave]);
 
-    // 4. Save on Tab Switch
-    useEffect(() => {
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'hidden' && isDirtyRef.current) {
-                triggerSave();
-            }
-        };
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-    }, [triggerSave]);
-
-    return { saveStatus, lastSaved };
+    return { status, lastSaved };
 }

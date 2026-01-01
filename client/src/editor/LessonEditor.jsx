@@ -1,10 +1,13 @@
-// client/src/LessonEditor.jsx (Updated)
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+// client/src/editor/LessonEditor.jsx
+import React, { useState, useEffect } from 'react';
 import { useParams, useOutletContext } from 'react-router';
+import { useQuery, QueryClientProvider } from '@tanstack/react-query'; // ✅ NEW
 import {
     Box, TextField, Typography, Button, Paper, Stack, List, ListItem, ListItemText,
-    CircularProgress, Tooltip, IconButton, Dialog, DialogContent, DialogTitle, Tabs, Tab
+    CircularProgress, Tooltip, IconButton, Tabs, Tab
 } from '@mui/material';
+
+// Icons
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddLinkIcon from '@mui/icons-material/AddLink';
 import CloudDoneIcon from '@mui/icons-material/CloudDone';
@@ -12,175 +15,108 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
+
+// Components & Context
 import LessonPreview from '../student_experience/LessonPreview';
 import { LoggedInContext } from "../context/LoggedInContext";
+import useAutoSave from '../hooks/useAutoSave'; // ✅ YOUR NEW HOOK
 
 export default function LessonEditor() {
     const { lessonId } = useParams();
-    const { items, setItems } = useOutletContext();
+    const { setItems } = useOutletContext(); // To update sidebar title
     const { showAlert } = React.useContext(LoggedInContext);
+    const queryClient = useQueryClient();
 
-    // Data States
+    // ---------------------------------------------------------
+    // 1. LOCAL STATE (For the form inputs)
+    // ---------------------------------------------------------
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
     const [videoUrl, setVideoUrl] = useState('');
     const [links, setLinks] = useState([]);
+    const [version, setVersion] = useState(1);
 
     // UI States
-    const [saveStatus, setSaveStatus] = useState('saved');
-    const [lastSaved, setLastSaved] = useState(null);
     const [tabValue, setTabValue] = useState(0); // 0 = Edit, 1 = Preview
     const [newLinkUrl, setNewLinkUrl] = useState('');
     const [newLinkLabel, setNewLinkLabel] = useState('');
-    const [version, setVersion] = useState(1);
-    const [isLoaded, setIsLoaded] = useState(false);
 
-    const dataRef = useRef({ id: lessonId, title, content, videoUrl, links, version });
-    const isDirtyRef = useRef(false);
-    const saveControllerRef = useRef(null);
-    const saveSeqRef = useRef(0);
+    // ---------------------------------------------------------
+    // 2. FETCH DATA (Replaces your old useEffect load)
+    // ---------------------------------------------------------
+    const { data: serverData, isLoading } = useQuery({
+        queryKey: ['lesson', lessonId],
+        queryFn: () => fetch(`/api/lessons/${lessonId}`).then(res => res.json()),
+        staleTime: 1000 * 60 * 5, // Cache for 5 mins
+    });
 
+    // ---------------------------------------------------------
+    // 3. SYNC STATE (When data loads, fill the form)
+    // ---------------------------------------------------------
     useEffect(() => {
-        dataRef.current = { id: lessonId, title, content, videoUrl, links, version };
-    }, [lessonId, title, content, videoUrl, links, version]);
-
-
-    // 1. Add a polling mechanism to sync version across tabs
-    // Replace the version polling with full data sync
-    useEffect(() => {
-        if (!isLoaded || !lessonId) return;
-
-        // Poll for remote changes every 3 seconds
-        const interval = setInterval(async () => {
-            try {
-                const res = await fetch(`/api/lessons/${lessonId}`);
-                const data = await res.json();
-
-                // If server version is newer, sync ALL data
-                if (data.version > version) {
-                    setTitle(data.title || "");
-                    setContent(data.content || "");
-                    setVideoUrl(data.video_url || "");
-                    setLinks(data.links || []);
-                    setVersion(data.version);
-                    isDirtyRef.current = false; // Clear dirty flag
-                    showAlert("Lesson updated from another session", "info");
-                }
-            } catch (err) {
-                console.error("Data sync failed:", err);
-            }
-        }, 3000);
-
-        return () => clearInterval(interval);
-    }, [lessonId, version, isLoaded, showAlert]);
-
-    // 2. Update saveLesson to handle 409 conflicts better
-    const saveLesson = useCallback(async (data, { isUnmounting = false } = {}) => {
-        const seq = ++saveSeqRef.current;
-        if (!isUnmounting) setSaveStatus('saving');
-        const minDelay = new Promise(resolve => setTimeout(resolve, 800));
-
-        if (!isUnmounting && saveControllerRef.current) saveControllerRef.current.abort();
-        const controller = new AbortController();
-        saveControllerRef.current = controller;
-
-        try {
-            const fetchPromise = fetch(`/api/lessons/${data.id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...data, version: data.version }),
-                keepalive: true,
-                signal: controller.signal
-            });
-
-            if (isUnmounting) {
-                fetchPromise.catch(e => console.error("Exit save failed", e));
-                return;
-            }
-
-            const [response] = await Promise.all([fetchPromise, minDelay]);
-
-            if (!response.ok) {
-                if (response.status === 409) {
-                    // Conflict: fetch latest version and retry once
-                    const freshData = await fetch(`/api/lessons/${lessonId}`).then(r => r.json());
-
-                    if (freshData) {
-                        setVersion(freshData.version);
-                        isDirtyRef.current = true; // Mark as dirty to retry save
-
-                        // Retry save with new version
-                        setTimeout(() => {
-                            saveLesson({ ...dataRef.current, version: freshData.version }, { isUnmounting });
-                        }, 500);
-                        return;
-                    }
-                }
-
-                const errBody = await response.json().catch(() => ({}));
-                console.error("Save error:", errBody);
-                if (!isUnmounting) setSaveStatus('error');
-                return;
-            }
-
-            if (seq !== saveSeqRef.current) return;
-
-            setSaveStatus('saved');
-            setLastSaved(new Date());
-            isDirtyRef.current = false;
-            const resJson = await response.json().catch(() => ({}));
-            if (resJson?.version) setVersion(resJson.version);
-
-        } catch (error) {
-            if (error?.name === 'AbortError') return;
-            console.error("Auto-save failed:", error);
-            if (!isUnmounting) setSaveStatus('error');
+        if (serverData) {
+            setTitle(serverData.title || "");
+            setContent(serverData.content || "");
+            setVideoUrl(serverData.video_url || "");
+            setLinks(serverData.links || []);
+            setVersion(serverData.version || 1);
         }
-    }, [lessonId, showAlert]);
+    }, [serverData, lessonId]);
 
-    // 1. LOAD DATA
-    // When lessonId changes: flush pending save for previous lesson, then load the new one
-    useEffect(() => {
-        let isMounted = true;
+    // ---------------------------------------------------------
+    // 4. DEFINE ACTIONS (Save & Conflict)
+    // ---------------------------------------------------------
+    const handleSaveApi = async (dataToSave) => {
+        const res = await fetch(`/api/lessons/${dataToSave.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                title: dataToSave.title,
+                content: dataToSave.content,
+                videoUrl: dataToSave.videoUrl,
+                links: dataToSave.links,
+                version: dataToSave.version
+            }),
+            keepalive: true
+        });
 
-        const loadLesson = async () => {
-            if (isDirtyRef.current) {
-                await saveLesson({ ...dataRef.current }, { isUnmounting: true });
-            }
+        if (!res.ok) {
+            const err = new Error("Save failed");
+            err.status = res.status;
+            throw err;
+        }
 
-            setIsLoaded(false);
-            setTitle(""); setContent(""); setVideoUrl(""); setLinks([]);
+        const json = await res.json();
+        
+        // Update version and Sidebar
+        if (json.version) setVersion(json.version);
+        if (setItems) {
+             setItems(prev => prev.map(i => i.id === Number(lessonId) ? { ...i, title: dataToSave.title } : i));
+        }
+    };
 
-            try {
-                const res = await fetch(`/api/lessons/${lessonId}`);
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error);
+    const handleConflict = () => {
+        showAlert("Sync conflict! Reloading data...", "warning");
+        queryClient.invalidateQueries(['lesson', lessonId]); // Re-fetch automatically
+    };
 
-                if (isMounted) {
-                    const { title, content, video_url, links } = data;
-                    setTitle(title || "");
-                    setContent(content || "");
-                    setVideoUrl(video_url || "");
-                    setLinks(links || []);
-                    setVersion(data.version || 1);
-                    isDirtyRef.current = false;
-                    setSaveStatus('saved');
-                    setIsLoaded(true);
-                }
-            } catch (err) {
-                console.error("Load failed", err);
-            }
-        };
+    // ---------------------------------------------------------
+    // 5. ACTIVATE AUTO-SAVE (The Hook)
+    // ---------------------------------------------------------
+    const { status, lastSaved } = useAutoSave({
+        data: { id: lessonId, title, content, videoUrl, links, version },
+        recordId: lessonId,
+        onSave: handleSaveApi,
+        onConflict: handleConflict,
+    });
 
-        loadLesson();
-
-        return () => { isMounted = false; };
-    }, [lessonId, saveLesson]);
-
-    // Video embed helper
+    // ---------------------------------------------------------
+    // 6. HELPER FUNCTIONS (✅ KEEP THESE HERE)
+    // ---------------------------------------------------------
+    
+    // Your video embed logic
     const getVideoEmbed = (url) => {
         if (!url) return null;
-
         if (url.includes("youtube.com") || url.includes("youtu.be")) {
             let videoId = "";
             try {
@@ -191,55 +127,17 @@ export default function LessonEditor() {
             if (!videoId) return null;
             return { type: 'iframe', src: `https://www.youtube.com/embed/${videoId}` };
         }
-
         if (url.includes("vimeo.com")) {
             const vimeoId = url.split("vimeo.com/")[1]?.split("/")[0];
             if (vimeoId) return { type: 'iframe', src: `https://player.vimeo.com/video/${vimeoId}` };
         }
-
         if (url.match(/\.(mp4|webm|ogg)$/i)) {
             return { type: 'video', src: url };
         }
-
         return null;
     };
 
-    // 2. SAVE FUNCTION
-
-    // 3. AUTO-SAVE
-    useEffect(() => {
-        if (!isLoaded) return;
-        if (!title && !content && !videoUrl) return;
-        isDirtyRef.current = true;
-
-        const timer = setTimeout(() => {
-            saveLesson(dataRef.current);
-        }, 2000);
-
-        return () => clearTimeout(timer);
-    }, [title, content, videoUrl, links, lessonId, saveLesson, isLoaded]);
-
-    // Cleanup & Exit Saves
-    useEffect(() => {
-        return () => {
-            if (isDirtyRef.current) saveLesson(dataRef.current, { isUnmounting: true });
-        };
-    }, [lessonId, saveLesson]);
-
-    useEffect(() => {
-        const handleBeforeUnload = () => {
-            if (isDirtyRef.current) saveLesson(dataRef.current, { isUnmounting: true });
-        };
-        window.addEventListener('beforeunload', handleBeforeUnload);
-        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-    }, [saveLesson]);
-
-    // Handlers
-    const handleTitleChange = (e) => {
-        const newTitle = e.target.value;
-        setTitle(newTitle);
-        setItems(prev => prev.map(i => i.id === Number(lessonId) ? { ...i, title: newTitle } : i));
-    };
+    const handleTitleChange = (e) => setTitle(e.target.value);
 
     const handleAddLink = () => {
         if (newLinkUrl && newLinkLabel) {
@@ -253,15 +151,24 @@ export default function LessonEditor() {
     };
 
     const getStatusIcon = () => {
-        switch (saveStatus) {
+        switch (status) {
             case 'saving': return <CircularProgress size={20} color="inherit" />;
             case 'saved': return <CloudDoneIcon color="success" />;
             case 'error': return <ErrorOutlineIcon color="error" />;
+            case 'conflict': return <ErrorOutlineIcon color="warning" />;
             default: return <CloudDoneIcon color="disabled" />;
         }
     };
 
-    const embedInfo = getVideoEmbed(videoUrl);
+    // ---------------------------------------------------------
+    // 7. RENDER (The Return)
+    // ---------------------------------------------------------
+    
+    if (isLoading) {
+        return <Box p={5} display="flex" justifyContent="center"><CircularProgress /></Box>;
+    }
+
+    const embedInfo = getVideoEmbed(videoUrl); // ✅ Used here
 
     return (
         <Box maxWidth="md" mx="auto">
@@ -275,7 +182,6 @@ export default function LessonEditor() {
                     </Typography>
                 </Box>
 
-                {/* Tab Switcher */}
                 <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)}>
                     <Tab icon={<EditIcon />} label="Edit" />
                     <Tab icon={<VisibilityIcon />} label="Preview" />
@@ -283,15 +189,15 @@ export default function LessonEditor() {
 
                 <Stack direction="row" alignItems="center" spacing={1} sx={{ ml: 2 }}>
                     <Typography variant="body2" color="text.secondary" sx={{ textTransform: 'capitalize' }}>
-                        {saveStatus === 'saving' ? 'Saving...' : saveStatus}
+                        {status === 'saving' ? 'Saving...' : status}
                     </Typography>
-                    <Tooltip title={saveStatus === 'error' ? "Failed to save" : "Auto-save active"}>
+                    <Tooltip title={status === 'error' ? "Failed to save" : "Auto-save active"}>
                         <Box sx={{ display: 'flex' }}>{getStatusIcon()}</Box>
                     </Tooltip>
                 </Stack>
             </Stack>
 
-            {/* Conditional Rendering: Edit vs Preview */}
+            {/* Content Area */}
             {tabValue === 0 ? (
                 <>
                     {/* EDIT MODE */}
@@ -310,6 +216,7 @@ export default function LessonEditor() {
                                 slotProps={{ input: { startAdornment: <PlayCircleOutlineIcon color="action" sx={{ mr: 1 }} /> } }}
                             />
 
+                            {/* Video Preview Box */}
                             {embedInfo && (
                                 <Box sx={{ mt: 2, borderRadius: 2, overflow: 'hidden', border: '1px solid #ddd', bgcolor: '#000' }}>
                                     <Box sx={{ position: 'relative', paddingTop: '56.25%' }}>
@@ -319,7 +226,6 @@ export default function LessonEditor() {
                                                 title="Video Preview"
                                                 style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
                                                 frameBorder="0"
-                                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                                 allowFullScreen
                                             />
                                         ) : (
@@ -361,23 +267,7 @@ export default function LessonEditor() {
                                 >
                                     <ListItemText
                                         primary={link.label}
-                                        secondary={
-                                            <Tooltip title={link.url} arrow placement="top">
-                                                <Box
-                                                    component="span"
-                                                    sx={{
-                                                        display: 'block',
-                                                        maxWidth: '400px',
-                                                        overflow: 'hidden',
-                                                        textOverflow: 'ellipsis',
-                                                        whiteSpace: 'nowrap',
-                                                        cursor: 'pointer'
-                                                    }}
-                                                >
-                                                    {link.url}
-                                                </Box>
-                                            </Tooltip>
-                                        }
+                                        secondary={link.url}
                                     />
                                 </ListItem>
                             ))}
