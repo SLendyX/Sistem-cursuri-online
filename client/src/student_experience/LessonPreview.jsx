@@ -104,7 +104,6 @@ export default function LessonPreview({ title, content, videoUrl, links }) {
                                             {link.label}
                                         </Link>
                                     }
-                                    secondary={link.url}
                                 />
                             </ListItem>
                         ))}

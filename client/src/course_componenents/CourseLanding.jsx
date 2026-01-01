@@ -14,7 +14,7 @@ import SchoolIcon from '@mui/icons-material/School';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import PersonIcon from '@mui/icons-material/Person';
 import ReviewSection from '../components/ReviewSection';
-import Breadcrumbs from '../components/Breadcrumbs';
+import Breadcrumbs from '../components/BreadCrumbs';
 
 export default function CourseLanding() {
     const { courseId } = useParams();
@@ -331,3 +331,10 @@ export default function CourseLanding() {
         </Box>
     );
 }
+
+
+/*
+{
+  "error": "(conn:24, no: 1054, SQLState: 42S22) Unknown column 'is_published' in 'WHERE'\nsql: SELECT DISTINCT category, COUNT(*) as count \n             FROM curs \n             WHERE is_published = 1 \n             GROUP BY category \n             ORDER BY category ASC - parameters:[]"
+}
+*/

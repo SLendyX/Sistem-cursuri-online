@@ -39,7 +39,14 @@ const fileFilter = (req, file, cb) => {
     else cb(new Error('Only images are allowed'), false);
 };
 
-const upload = multer({ storage: storage, fileFilter: fileFilter });
+const upload = multer({ 
+    storage: storage, 
+    fileFilter: fileFilter,
+    limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB limit
+        files: 1
+    }
+});
 
 // --- Token Verification ---
 const verifyToken = (req) => {
@@ -48,6 +55,32 @@ const verifyToken = (req) => {
     try {
         return jwt.verify(token, process.env.JWT_SECRET).userId;
     } catch (err) { return null; }
+};
+
+// --- Validate input ---
+const validateCourseInput = (req, res, next) => {
+    const { numeCurs, descriere, pret } = req.body;
+    
+    if (!numeCurs || numeCurs.length < 3 || numeCurs.length > 128) {
+        return res.status(400).json({ 
+            error: "Course title must be 3-128 characters" 
+        });
+    }
+    
+    if (!descriere || descriere.length < 10 || descriere.length > 400) {
+        return res.status(400).json({ 
+            error: "Description must be 10-400 characters" 
+        });
+    }
+    
+    const priceNum = parseFloat(pret);
+    if (isNaN(priceNum) || priceNum < 0 || priceNum > 10000) {
+        return res.status(400).json({ 
+            error: "Price must be between 0 and 10000" 
+        });
+    }
+    
+    next();
 };
 
 // --- Auth & Ownership Helpers ---
@@ -227,7 +260,7 @@ router.get("/my_courses", async (req, res) => {
 });
 
 // POST /api/courses - Create new course
-router.post("/courses", requireProfessor, upload.single('image'), async (req, res) => {
+router.post("/courses", requireProfessor, upload.single('image'),  validateCourseInput, async (req, res) => {
     const userId = req.userId;
     const { numeCurs, descriere, dificultate, pret, category } = req.body;
 

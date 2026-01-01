@@ -23,7 +23,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteIcon from '@mui/icons-material/Delete';
 
 // 1. IMPORT BREADCRUMBS
-import Breadcrumbs from '../components/Breadcrumbs';
+import Breadcrumbs from '../components/BreadCrumbs';
 
 const drawerWidth = 300;
 

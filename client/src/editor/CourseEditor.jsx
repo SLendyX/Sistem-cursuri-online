@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import Breadcrumbs from '../components/Breadcrumbs';
 import {
     Box, TextField, Typography, Paper, Stack,
     CircularProgress, Tooltip, MenuItem, InputAdornment, Button, Card, CardMedia,

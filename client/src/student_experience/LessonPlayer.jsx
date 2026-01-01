@@ -3,7 +3,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate, useOutletContext } from 'react-router';
 import { LoggedInContext } from '../context/LoggedInContext';
 import LessonPreview from './LessonPreview';
-import Breadcrumbs from '../components/Breadcrumbs';
+import Breadcrumbs from '../components/BreadCrumbs';
 import {
     Box, Button, Stack, Checkbox, FormControlLabel,
     Paper, Typography, CircularProgress, Dialog, DialogTitle,

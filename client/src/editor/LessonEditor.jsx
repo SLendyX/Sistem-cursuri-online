@@ -13,10 +13,12 @@ import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
 import LessonPreview from '../student_experience/LessonPreview';
+import { LoggedInContext } from "../context/LoggedInContext";
 
 export default function LessonEditor() {
     const { lessonId } = useParams();
     const { items, setItems } = useOutletContext();
+    const { showAlert } = React.useContext(LoggedInContext);
 
     // Data States
     const [title, setTitle] = useState('');
@@ -32,22 +34,52 @@ export default function LessonEditor() {
     const [newLinkLabel, setNewLinkLabel] = useState('');
     const [version, setVersion] = useState(1);
     const [isLoaded, setIsLoaded] = useState(false);
-    
+
     const dataRef = useRef({ id: lessonId, title, content, videoUrl, links, version });
     const isDirtyRef = useRef(false);
     const saveControllerRef = useRef(null);
     const saveSeqRef = useRef(0);
-    
+
     useEffect(() => {
         dataRef.current = { id: lessonId, title, content, videoUrl, links, version };
     }, [lessonId, title, content, videoUrl, links, version]);
-    
+
+
+    // 1. Add a polling mechanism to sync version across tabs
+    // Replace the version polling with full data sync
+    useEffect(() => {
+        if (!isLoaded || !lessonId) return;
+
+        // Poll for remote changes every 3 seconds
+        const interval = setInterval(async () => {
+            try {
+                const res = await fetch(`/api/lessons/${lessonId}`);
+                const data = await res.json();
+
+                // If server version is newer, sync ALL data
+                if (data.version > version) {
+                    setTitle(data.title || "");
+                    setContent(data.content || "");
+                    setVideoUrl(data.video_url || "");
+                    setLinks(data.links || []);
+                    setVersion(data.version);
+                    isDirtyRef.current = false; // Clear dirty flag
+                    showAlert("Lesson updated from another session", "info");
+                }
+            } catch (err) {
+                console.error("Data sync failed:", err);
+            }
+        }, 3000);
+
+        return () => clearInterval(interval);
+    }, [lessonId, version, isLoaded, showAlert]);
+
+    // 2. Update saveLesson to handle 409 conflicts better
     const saveLesson = useCallback(async (data, { isUnmounting = false } = {}) => {
         const seq = ++saveSeqRef.current;
         if (!isUnmounting) setSaveStatus('saving');
         const minDelay = new Promise(resolve => setTimeout(resolve, 800));
 
-        // Abort any in-flight save before starting a new one (unless we intentionally keep it)
         if (!isUnmounting && saveControllerRef.current) saveControllerRef.current.abort();
         const controller = new AbortController();
         saveControllerRef.current = controller;
@@ -67,28 +99,31 @@ export default function LessonEditor() {
             }
 
             const [response] = await Promise.all([fetchPromise, minDelay]);
+
             if (!response.ok) {
-                const errBody = await response.json().catch(() => ({}));
                 if (response.status === 409) {
-                    showAlert("Content was updated elsewhere. Reloading...", "warning");
+                    // Conflict: fetch latest version and retry once
+                    const freshData = await fetch(`/api/lessons/${lessonId}`).then(r => r.json());
 
-                    // Reload fresh data from server
-                    const freshData = await fetch(`/api/lessons/${lessonId}`)
-                        .then(r => r.json());
+                    if (freshData) {
+                        setVersion(freshData.version);
+                        isDirtyRef.current = true; // Mark as dirty to retry save
 
-                    // Update local state with server data
-                    setTitle(freshData.title || "");
-                    setContent(freshData.content || "");
-                    setVideoUrl(freshData.video_url || "");
-                    setLinks(freshData.links || []);
-                    setVersion(freshData.version || 1);
-
-                    setSaveStatus('error');
-                    showAlert("Your changes were discarded. Please review and save again.", "error");
-                    return;
+                        // Retry save with new version
+                        setTimeout(() => {
+                            saveLesson({ ...dataRef.current, version: freshData.version }, { isUnmounting });
+                        }, 500);
+                        return;
+                    }
                 }
+
+                const errBody = await response.json().catch(() => ({}));
+                console.error("Save error:", errBody);
+                if (!isUnmounting) setSaveStatus('error');
+                return;
             }
-            if (seq !== saveSeqRef.current) return; // Ignore stale response
+
+            if (seq !== saveSeqRef.current) return;
 
             setSaveStatus('saved');
             setLastSaved(new Date());
@@ -101,8 +136,8 @@ export default function LessonEditor() {
             console.error("Auto-save failed:", error);
             if (!isUnmounting) setSaveStatus('error');
         }
-    }, []);
-    
+    }, [lessonId, showAlert]);
+
     // 1. LOAD DATA
     // When lessonId changes: flush pending save for previous lesson, then load the new one
     useEffect(() => {
@@ -315,10 +350,35 @@ export default function LessonEditor() {
                         </Stack>
                         <List>
                             {links.map((link, index) => (
-                                <ListItem key={index} divider secondaryAction={
-                                    <IconButton edge="end" color="error" onClick={() => handleDeleteLink(index)}><DeleteIcon /></IconButton>
-                                }>
-                                    <ListItemText primary={link.label} secondary={link.url} />
+                                <ListItem
+                                    key={index}
+                                    divider
+                                    secondaryAction={
+                                        <IconButton edge="end" color="error" onClick={() => handleDeleteLink(index)}>
+                                            <DeleteIcon />
+                                        </IconButton>
+                                    }
+                                >
+                                    <ListItemText
+                                        primary={link.label}
+                                        secondary={
+                                            <Tooltip title={link.url} arrow placement="top">
+                                                <Box
+                                                    component="span"
+                                                    sx={{
+                                                        display: 'block',
+                                                        maxWidth: '400px',
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis',
+                                                        whiteSpace: 'nowrap',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    {link.url}
+                                                </Box>
+                                            </Tooltip>
+                                        }
+                                    />
                                 </ListItem>
                             ))}
                         </List>
@@ -326,7 +386,7 @@ export default function LessonEditor() {
                 </>
             ) : (
                 // PREVIEW MODE
-                <LessonPreview 
+                <LessonPreview
                     title={title}
                     content={content}
                     videoUrl={videoUrl}
