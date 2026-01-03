@@ -1,214 +1,90 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useOutletContext, useLocation } from 'react-router'; // 👈 1. Import useLocation
+import React, { useState, useEffect, useCallback } from 'react';
+import { useOutletContext, useLocation } from 'react-router';
 import {
     Box, TextField, Typography, Paper, Stack,
     CircularProgress, Tooltip, Switch, FormControlLabel
 } from '@mui/material';
-import CloudDoneIcon from '@mui/icons-material/CloudDone';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import StatusIcon from "../components/StatusIcon"
 
-export default function ChapterEditor() {
-    const { chapterId } = useParams();
-    const location = useLocation(); // 👈 2. Get current location
-    const { items, setItems } = useOutletContext(); 
+// ✅ Import the Hook
+import useAutoSave from '../hooks/useAutoSave';
 
-    // 👇 3. Check for the query param
+export default function ChapterEditor({chapterId, initialData, queryClient}) {
+    const location = useLocation();
+    const { setItems } = useOutletContext(); // Only need setItems for sidebar updates
+
+    // Check query param
     const searchParams = new URLSearchParams(location.search);
     const isLessonView = searchParams.get('view') === 'lessons';
 
     // Data States
-    const [title, setTitle] = useState('');
-    const [isPublished, setIsPublished] = useState(false);
-    const [saveStatus, setSaveStatus] = useState('saved');
-    const [lastSaved, setLastSaved] = useState(null);
-    const [version, setVersion] = useState(1);
-    const [isLoaded, setIsLoaded] = useState(false);
+    const [title, setTitle] = useState(initialData?.title || "");
+    const [isPublished, setIsPublished] = useState(Boolean(initialData?.is_published));
+    const [version, setVersion] = useState(initialData?.version || 1);
 
-    const dataRef = useRef({ id: chapterId, title, isPublished, version });
-    const currentIdRef = useRef(chapterId);
-    const isDirtyRef = useRef(false);
-    const saveControllerRef = useRef(null);
-    const saveSeqRef = useRef(0);
+    const handleTitleChange = (e) => setTitle(e.target.value);
 
-    useEffect(() => {
-        // Keep dataRef in sync with latest fields but use the stable id stored in currentIdRef
-        dataRef.current = { id: currentIdRef.current, title, isPublished, version };
-    }, [title, isPublished, version]);
+    // 2. DEFINE SAVE FUNCTION
+    const handleSaveApi = useCallback(async (dataToSave) => {
+        const response = await fetch(`/api/chapters/${chapterId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                title: dataToSave.title,
+                isPublished: dataToSave.isPublished ? 1 : 0,
+                version: version // ✅ Use state version to prevent race conditions
+            }),
+            keepalive: true
+        });
 
-    const saveChapter = useCallback(async (data, { isUnmounting = false } = {}) => {
-        const seq = ++saveSeqRef.current;
-        if (!isUnmounting) setSaveStatus('saving');
-        const minDelay = new Promise(resolve => setTimeout(resolve, 800));
-
-        // Abort any in-flight save before starting a new one (unless we intentionally keep it)
-        if (!isUnmounting && saveControllerRef.current) saveControllerRef.current.abort();
-        const controller = new AbortController();
-        saveControllerRef.current = controller;
-
-        try {
-            const fetchPromise = fetch(`/api/chapters/${data.id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    title: data.title,
-                    isPublished: data.isPublished ? 1 : 0,
-                    version: data.version
-                }),
-                keepalive: true,
-                signal: controller.signal
-            });
-
-            if (isUnmounting) {
-                fetchPromise.catch(e => console.error("Exit save failed", e));
-                return;
-            }
-
-            const [response] = await Promise.all([fetchPromise, minDelay]);
-            if (!response.ok) {
-                const errBody = await response.json().catch(() => ({}));
-                if (response.status === 409) {
-                    showAlert("Content was updated elsewhere. Reloading...", "warning");
-
-                    // Reload fresh data from server
-                    const freshData = await fetch(`/api/chapters/${chapterId}`)
-                        .then(r => r.json());
-
-                    // Update local state with server data
-                    setTitle(freshData.title || "");
-                    setIsPublished(Boolean(freshData.is_published));
-                    setVersion(freshData.version || 1);
-
-                    setSaveStatus('error');
-                    showAlert("Your changes were discarded. Please review and save again.", "error");
-                    return;
-                }
-
-                throw new Error(errBody.error || "Save failed");
-            }
-            if (seq !== saveSeqRef.current) return; // Ignore stale response
-
-            setSaveStatus('saved');
-            setLastSaved(new Date());
-            isDirtyRef.current = false;
-            const resJson = await response.json().catch(() => ({}));
-            if (resJson?.version) setVersion(resJson.version);
-
-        } catch (error) {
-            if (error?.name === 'AbortError') return;
-            console.error("Auto-save failed:", error);
-            if (!isUnmounting) setSaveStatus('error');
+        if (!response.ok) {
+            const err = new Error("Save failed");
+            err.status = response.status;
+            throw err;
         }
-    }, []);
 
-    // When chapterId changes: flush any pending save for the previous chapter, then load the new one
-    useEffect(() => {
-        let isMounted = true;
+        const resData = await response.json();
 
-        const loadChapter = async () => {
-            // Finish pending save for previous chapter before loading the new one
-            if (isDirtyRef.current) {
-                const prevSnapshot = { ...dataRef.current };
-                await saveChapter(prevSnapshot, { isUnmounting: true });
-            }
+        // Update local version
+        if (resData.version) setVersion(resData.version);
 
-            setIsLoaded(false);
-            setTitle(""); 
-            
-            try {
-                const res = await fetch(`/api/chapters/${chapterId}`);
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error);
+        // ✅ Update Sidebar Context immediately
+        setItems(prev => prev.map(item =>
+            item.id === Number(chapterId) && item.type === 'chapter'
+                ? { ...item, title: dataToSave.title }
+                : item
+        ));
 
-                if (isMounted) {
-                    currentIdRef.current = chapterId; // update stable id only after load succeeds
-                    dataRef.current = {
-                        id: chapterId,
-                        title: data.title || "",
-                        isPublished: Boolean(data.is_published),
-                        version: data.version || 1
-                    };
+    }, [chapterId, version, setItems]);
 
-                    setTitle(data.title || "");
-                    setIsPublished(Boolean(data.is_published));
-                    setVersion(data.version || 1);
-                    isDirtyRef.current = false;
-                    setSaveStatus('saved');
-                    setIsLoaded(true);
-                }
-            } catch (err) {
-                console.error("Load failed", err);
-            }
-        };
-
-        loadChapter();
-
-        return () => { isMounted = false; };
-    }, [chapterId, saveChapter]);
-
-    useEffect(() => {
-        if (!isLoaded) return;
-        if (!title && !isDirtyRef.current) return;
-        isDirtyRef.current = true;
-        const snapshot = { ...dataRef.current };
-        const timer = setTimeout(() => saveChapter(snapshot), 1500);
-        return () => clearTimeout(timer);
-    }, [title, isPublished, saveChapter, isLoaded]);
-
-    useEffect(() => {
-        return () => {
-            if (isDirtyRef.current) {
-                const snapshot = { ...dataRef.current };
-                saveChapter(snapshot, { isUnmounting: true });
-            }
-        };
-    }, [saveChapter]);
-
-    useEffect(() => {
-        const handleBeforeUnload = () => {
-            if (isDirtyRef.current) {
-                const snapshot = { ...dataRef.current };
-                saveChapter(snapshot, { isUnmounting: true });
-            }
-        };
-        window.addEventListener('beforeunload', handleBeforeUnload);
-        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-    }, [saveChapter]);
-
-    const handleTitleChange = (e) => {
-        const newTitle = e.target.value;
-        setTitle(newTitle);
-        setItems(prev => prev.map(i => i.id === Number(chapterId) ? { ...i, title: newTitle } : i));
+    // 3. DEFINE CONFLICT HANDLER
+    const handleConflict = () => {
+        // Simple reload logic
+        showAlert("Sync conflict! Reloading data...", "warning");
+        queryClient.invalidateQueries(['chapter', chapterId]);
     };
 
-    const getStatusIcon = () => {
-        switch (saveStatus) {
-            case 'saving': return <CircularProgress size={20} color="inherit" />;
-            case 'saved': return <CloudDoneIcon color="success" />;
-            case 'error': return <ErrorOutlineIcon color="error" />;
-            default: return <CloudDoneIcon color="disabled" />;
-        }
-    };
+    // 4. USE THE HOOK
+    const { status: saveStatus, lastSaved } = useAutoSave({
+        data: {
+            id: chapterId,
+            title,
+            isPublished
+        },
+        onSave: handleSaveApi,
+        onConflict: handleConflict,
+    });
 
-    // 👇 4. CONDITIONAL RENDER: If in "Lesson View", hide the editor
+
+    // 5. VIEW LOGIC
     if (isLessonView) {
         return (
-            <Box sx={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                height: '100%', 
-                color: 'text.secondary' 
-            }}>
-                <Typography variant="h6">
-                    Select a lesson from the sidebar to edit content
-                </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'text.secondary' }}>
+                <Typography variant="h6">Select a lesson from the sidebar to edit content</Typography>
             </Box>
         );
     }
 
-    console.log(dataRef.current, isDirtyRef.current)
-
-    // Otherwise, show the normal Chapter Editor
     return (
         <Box maxWidth="md" mx="auto">
             {/* Header */}
@@ -225,7 +101,9 @@ export default function ChapterEditor() {
                         {saveStatus === 'saving' ? 'Saving...' : saveStatus}
                     </Typography>
                     <Tooltip title={saveStatus === 'error' ? "Failed to save" : "Auto-save active"}>
-                        <Box sx={{ display: 'flex' }}>{getStatusIcon()}</Box>
+                        <Box sx={{ display: 'flex' }}>
+                            <StatusIcon saveStatus={saveStatus}/>
+                        </Box>
                     </Tooltip>
                 </Stack>
             </Stack>
@@ -250,7 +128,7 @@ export default function ChapterEditor() {
                         }
                         label={
                             <Typography>
-                                Published 
+                                Published
                                 <Typography component="span" variant="caption" sx={{ ml: 1, color: 'text.secondary' }}>
                                     (Visible to students)
                                 </Typography>

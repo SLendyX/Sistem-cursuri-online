@@ -80,7 +80,7 @@ export default function CoursePlayerLayout() {
     };
 
     const handleBackToCourses = () => {
-        navigate(`/courses/${courseId}`)
+        navigate(`/my-learning`)
     };
 
     const totalLessons = chapters.reduce((sum, ch) => sum + (ch.lessons?.length || 0), 0);

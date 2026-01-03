@@ -1,7 +1,7 @@
 // client/src/editor/LessonEditor.jsx
 import React, { useState, useEffect } from 'react';
 import { useParams, useOutletContext } from 'react-router';
-import { useQuery, QueryClientProvider } from '@tanstack/react-query'; // ✅ NEW
+import { useQuery, useQueryClient } from '@tanstack/react-query'; // ✅ NEW
 import {
     Box, TextField, Typography, Button, Paper, Stack, List, ListItem, ListItemText,
     CircularProgress, Tooltip, IconButton, Tabs, Tab
@@ -10,31 +10,29 @@ import {
 // Icons
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddLinkIcon from '@mui/icons-material/AddLink';
-import CloudDoneIcon from '@mui/icons-material/CloudDone';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
+
+import StatusIcon from '../components/StatusIcon';
 
 // Components & Context
 import LessonPreview from '../student_experience/LessonPreview';
 import { LoggedInContext } from "../context/LoggedInContext";
 import useAutoSave from '../hooks/useAutoSave'; // ✅ YOUR NEW HOOK
 
-export default function LessonEditor() {
-    const { lessonId } = useParams();
-    const { setItems } = useOutletContext(); // To update sidebar title
+export default function LessonEditor({lessonId, initialData, queryClient}) {
+    const { setItems } = useOutletContext();
     const { showAlert } = React.useContext(LoggedInContext);
-    const queryClient = useQueryClient();
 
     // ---------------------------------------------------------
     // 1. LOCAL STATE (For the form inputs)
     // ---------------------------------------------------------
-    const [title, setTitle] = useState('');
-    const [content, setContent] = useState('');
-    const [videoUrl, setVideoUrl] = useState('');
-    const [links, setLinks] = useState([]);
-    const [version, setVersion] = useState(1);
+    const [title, setTitle] = useState(initialData.title || '');
+    const [content, setContent] = useState(initialData.content || '');
+    const [videoUrl, setVideoUrl] = useState(initialData.video_url || '');
+    const [links, setLinks] = useState(initialData?.links || []);
+    const [version, setVersion] = useState(initialData?.version || 1);
 
     // UI States
     const [tabValue, setTabValue] = useState(0); // 0 = Edit, 1 = Preview
@@ -42,41 +40,18 @@ export default function LessonEditor() {
     const [newLinkLabel, setNewLinkLabel] = useState('');
 
     // ---------------------------------------------------------
-    // 2. FETCH DATA (Replaces your old useEffect load)
-    // ---------------------------------------------------------
-    const { data: serverData, isLoading } = useQuery({
-        queryKey: ['lesson', lessonId],
-        queryFn: () => fetch(`/api/lessons/${lessonId}`).then(res => res.json()),
-        staleTime: 1000 * 60 * 5, // Cache for 5 mins
-    });
-
-    // ---------------------------------------------------------
-    // 3. SYNC STATE (When data loads, fill the form)
-    // ---------------------------------------------------------
-    useEffect(() => {
-        if (serverData) {
-            setTitle(serverData.title || "");
-            setContent(serverData.content || "");
-            setVideoUrl(serverData.video_url || "");
-            setLinks(serverData.links || []);
-            setVersion(serverData.version || 1);
-        }
-    }, [serverData, lessonId]);
-
-    // ---------------------------------------------------------
-    // 4. DEFINE ACTIONS (Save & Conflict)
+    // 1. DEFINE ACTIONS (Save & Conflict)
     // ---------------------------------------------------------
     const handleSaveApi = async (dataToSave) => {
+        const payload = {
+            ...dataToSave,
+            version: version // ✅ Read the state variable here
+        };
+
         const res = await fetch(`/api/lessons/${dataToSave.id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                title: dataToSave.title,
-                content: dataToSave.content,
-                videoUrl: dataToSave.videoUrl,
-                links: dataToSave.links,
-                version: dataToSave.version
-            }),
+            body: JSON.stringify(payload),
             keepalive: true
         });
 
@@ -91,7 +66,7 @@ export default function LessonEditor() {
         // Update version and Sidebar
         if (json.version) setVersion(json.version);
         if (setItems) {
-             setItems(prev => prev.map(i => i.id === Number(lessonId) ? { ...i, title: dataToSave.title } : i));
+            setItems(prev => prev.map(i => i.id === Number(lessonId) ? { ...i, title: dataToSave.title } : i));
         }
     };
 
@@ -104,10 +79,9 @@ export default function LessonEditor() {
     // 5. ACTIVATE AUTO-SAVE (The Hook)
     // ---------------------------------------------------------
     const { status, lastSaved } = useAutoSave({
-        data: { id: lessonId, title, content, videoUrl, links, version },
-        recordId: lessonId,
+        data: { id: lessonId, title, content, videoUrl, links },
         onSave: handleSaveApi,
-        onConflict: handleConflict,
+        onConflict: handleConflict
     });
 
     // ---------------------------------------------------------
@@ -149,24 +123,7 @@ export default function LessonEditor() {
     const handleDeleteLink = (index) => {
         setLinks(links.filter((_, i) => i !== index));
     };
-
-    const getStatusIcon = () => {
-        switch (status) {
-            case 'saving': return <CircularProgress size={20} color="inherit" />;
-            case 'saved': return <CloudDoneIcon color="success" />;
-            case 'error': return <ErrorOutlineIcon color="error" />;
-            case 'conflict': return <ErrorOutlineIcon color="warning" />;
-            default: return <CloudDoneIcon color="disabled" />;
-        }
-    };
-
-    // ---------------------------------------------------------
-    // 7. RENDER (The Return)
-    // ---------------------------------------------------------
     
-    if (isLoading) {
-        return <Box p={5} display="flex" justifyContent="center"><CircularProgress /></Box>;
-    }
 
     const embedInfo = getVideoEmbed(videoUrl); // ✅ Used here
 
@@ -192,7 +149,9 @@ export default function LessonEditor() {
                         {status === 'saving' ? 'Saving...' : status}
                     </Typography>
                     <Tooltip title={status === 'error' ? "Failed to save" : "Auto-save active"}>
-                        <Box sx={{ display: 'flex' }}>{getStatusIcon()}</Box>
+                        <Box sx={{ display: 'flex' }}>
+                            <StatusIcon saveStatus={status}/>
+                        </Box>
                     </Tooltip>
                 </Stack>
             </Stack>

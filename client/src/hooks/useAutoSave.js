@@ -1,91 +1,128 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-export default function useAutoSave({ 
-    data, 
-    recordId,        // NEW: Pass lessonId/courseId here to detect switching
-    onSave,          // Async function that returns the updated version
-    onConflict,      // NEW: specific handler for 409 errors
-    debounceMs = 2000 
+export default function useAutoSave({
+    data,
+    onSave,
+    onConflict,
+    debounceMs = 2000
 }) {
     const [status, setStatus] = useState('saved');
     const [lastSaved, setLastSaved] = useState(null);
-    
-    // Refs for state that shouldn't trigger re-renders
+
+    // Refs for latest values (to avoid stale closures in timeouts/effects)
+    const onSaveRef = useRef(onSave);
+    const onConflictRef = useRef(onConflict);
     const dataRef = useRef(data);
-    const prevIdRef = useRef(recordId);
+    
+    // 1. LOCK: Track if a request is currently flying
+    const isSavingRef = useRef(false);
     const isDirtyRef = useRef(false);
     const saveTimerRef = useRef(null);
 
-    // 1. Sync Data Ref
+    // 🆕 SIMPLIFICATION: Initialize baseline immediately. 
+    // Since the Wrapper guarantees 'data' is real on mount, we don't need effects to sync this.
+    const [lastSavedString, setLastSavedString] = useState(() => JSON.stringify(data));
+
+    // Keep Refs fresh
     useEffect(() => {
         dataRef.current = data;
-    }, [data]);
+        onSaveRef.current = onSave;
+        onConflictRef.current = onConflict;
+    }, [data, onSave, onConflict]);
 
-    // 2. The Core Save Logic
+    // 2. SAVE FUNCTION
     const performSave = useCallback(async (dataToSave, isUnmount = false) => {
+        if (isSavingRef.current && !isUnmount) return;
+
+        isSavingRef.current = true;
         if (!isUnmount) setStatus('saving');
-        
+
         try {
-            // Your onSave should return the new version number
-            await onSave(dataToSave); 
-            
+            await onSaveRef.current(dataToSave);
+
+            // Update "Truth"
+            setLastSavedString(JSON.stringify(dataToSave));
+
             if (!isUnmount) {
+                console.log("Saved");
                 setStatus('saved');
                 setLastSaved(new Date());
                 isDirtyRef.current = false;
             }
         } catch (err) {
             console.error("AutoSave failed:", err);
-            
-            // Handle 409 Conflict specifically
-            if (err.status === 409 && onConflict) {
-                setStatus('error'); // or 'conflict'
-                onConflict(); 
-            } else {
-                if (!isUnmount) setStatus('error');
+            if (err.status === 409 && onConflictRef.current) {
+                setStatus('conflict');
+                onConflictRef.current();
+            } else if (!isUnmount) {
+                setStatus('error');
             }
+        } finally {
+            isSavingRef.current = false;
         }
-    }, [onSave, onConflict]);
+    }, []);
 
-    // 3. Handle ID Switching (The "Flush" Logic)
-    // If user clicks Lesson B while Lesson A is dirty, save A immediately.
-    useEffect(() => {
-        if (prevIdRef.current !== recordId) {
-            if (isDirtyRef.current) {
-                console.log(`Switching ID from ${prevIdRef.current} to ${recordId} - Flushing save`);
-                performSave(dataRef.current, true); // True = treat as unmount/background save
-            }
-            // Reset for new ID
-            isDirtyRef.current = false;
-            setStatus('saved');
-            prevIdRef.current = recordId;
-        }
-    }, [recordId, performSave]);
-
-    // 4. Trigger Auto-Save on Change
-    useEffect(() => {
-        // Don't save on initial load or if data hasn't actually changed
-        // (You might want a deep comparison here eventually)
-        if (JSON.stringify(data) === JSON.stringify(dataRef.current) && !isDirtyRef.current) return;
-
-        isDirtyRef.current = true;
-        setStatus('saving');
-
-        if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-        saveTimerRef.current = setTimeout(() => {
-            performSave(dataRef.current);
-        }, debounceMs);
-
-        return () => clearTimeout(saveTimerRef.current);
-    }, [data, debounceMs, performSave]);
-
-    // 5. Cleanup on Unmount
+    // 3. HANDLE UNMOUNT (Navigation / Component Destruction)
+    // We removed 'recordId' dependency because if ID changes, this component unmounts anyway.
     useEffect(() => {
         return () => {
-            if (isDirtyRef.current) {
+            if (isDirtyRef.current && !isSavingRef.current) {
+                console.log("AutoSave: Saving before unmount...");
                 performSave(dataRef.current, true);
             }
         };
+    }, [performSave]);
+
+    // 4. CORE LOGIC (Debounce)
+    const dataString = JSON.stringify(data);
+
+    useEffect(() => {
+        // If data hasn't changed from baseline, do nothing
+        if (dataString === lastSavedString) return;
+
+        console.log("Change detected, scheduling save...");
+        isDirtyRef.current = true;
+        setStatus('pending');
+
+        if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+
+        saveTimerRef.current = setTimeout(() => {
+            performSave(JSON.parse(dataString));
+        }, debounceMs);
+
+        return () => clearTimeout(saveTimerRef.current);
+    }, [dataString, lastSavedString, debounceMs, performSave]);
+
+    // 5. CTRL+S SHORTCUT
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                if (isDirtyRef.current && !isSavingRef.current) {
+                    console.log("Ctrl+S triggered");
+                    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+                    performSave(JSON.parse(dataString));
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [dataString, performSave]);
+
+    // 6. HANDLE TAB CLOSE (Browser Level)
+    useEffect(() => {
+        const handleBeforeUnload = (e) => {
+            if (isDirtyRef.current && !isSavingRef.current) {
+                performSave(dataRef.current, true);
+                // Standard browser behavior requires these:
+                e.preventDefault(); 
+                e.returnValue = ''; 
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }, [performSave]);
 
     return { status, lastSaved };
