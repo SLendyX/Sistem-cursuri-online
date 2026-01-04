@@ -4,7 +4,7 @@ import { useParams, useOutletContext } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query'; // ✅ NEW
 import {
     Box, TextField, Typography, Button, Paper, Stack, List, ListItem, ListItemText,
-    CircularProgress, Tooltip, IconButton, Tabs, Tab
+    Tooltip, IconButton, Tabs, Tab, FormControlLabel, Switch
 } from '@mui/material';
 
 // Icons
@@ -21,7 +21,7 @@ import LessonPreview from '../student_experience/LessonPreview';
 import { LoggedInContext } from "../context/LoggedInContext";
 import useAutoSave from '../hooks/useAutoSave'; // ✅ YOUR NEW HOOK
 
-export default function LessonEditor({lessonId, initialData, queryClient}) {
+export default function LessonEditor({ lessonId, initialData, queryClient }) {
     const { setItems } = useOutletContext();
     const { showAlert } = React.useContext(LoggedInContext);
 
@@ -33,6 +33,7 @@ export default function LessonEditor({lessonId, initialData, queryClient}) {
     const [videoUrl, setVideoUrl] = useState(initialData.video_url || '');
     const [links, setLinks] = useState(initialData?.links || []);
     const [version, setVersion] = useState(initialData?.version || 1);
+    const [isPublished, setIsPublished] = useState(Boolean(initialData?.is_published))
 
     // UI States
     const [tabValue, setTabValue] = useState(0); // 0 = Edit, 1 = Preview
@@ -48,7 +49,7 @@ export default function LessonEditor({lessonId, initialData, queryClient}) {
             version: version // ✅ Read the state variable here
         };
 
-        const res = await fetch(`/api/lessons/${dataToSave.id}`, {
+        const res = await fetch(`/api/author/lessons/${dataToSave.id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
@@ -62,7 +63,7 @@ export default function LessonEditor({lessonId, initialData, queryClient}) {
         }
 
         const json = await res.json();
-        
+
         // Update version and Sidebar
         if (json.version) setVersion(json.version);
         if (setItems) {
@@ -79,7 +80,7 @@ export default function LessonEditor({lessonId, initialData, queryClient}) {
     // 5. ACTIVATE AUTO-SAVE (The Hook)
     // ---------------------------------------------------------
     const { status, lastSaved } = useAutoSave({
-        data: { id: lessonId, title, content, videoUrl, links },
+        data: { id: lessonId, title, content, videoUrl, links, isPublished },
         onSave: handleSaveApi,
         onConflict: handleConflict
     });
@@ -87,7 +88,7 @@ export default function LessonEditor({lessonId, initialData, queryClient}) {
     // ---------------------------------------------------------
     // 6. HELPER FUNCTIONS (✅ KEEP THESE HERE)
     // ---------------------------------------------------------
-    
+
     // Your video embed logic
     const getVideoEmbed = (url) => {
         if (!url) return null;
@@ -123,7 +124,7 @@ export default function LessonEditor({lessonId, initialData, queryClient}) {
     const handleDeleteLink = (index) => {
         setLinks(links.filter((_, i) => i !== index));
     };
-    
+
 
     const embedInfo = getVideoEmbed(videoUrl); // ✅ Used here
 
@@ -150,7 +151,7 @@ export default function LessonEditor({lessonId, initialData, queryClient}) {
                     </Typography>
                     <Tooltip title={status === 'error' ? "Failed to save" : "Auto-save active"}>
                         <Box sx={{ display: 'flex' }}>
-                            <StatusIcon saveStatus={status}/>
+                            <StatusIcon saveStatus={status} />
                         </Box>
                     </Tooltip>
                 </Stack>
@@ -165,6 +166,24 @@ export default function LessonEditor({lessonId, initialData, queryClient}) {
                             <TextField
                                 label="Lesson Title" variant="outlined" fullWidth
                                 value={title} onChange={handleTitleChange}
+                            />
+
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        checked={isPublished}
+                                        onChange={(e) => setIsPublished(e.target.checked)}
+                                        color="primary"
+                                    />
+                                }
+                                label={
+                                    <Typography>
+                                        Published
+                                        <Typography component="span" variant="caption" sx={{ ml: 1, color: 'text.secondary' }}>
+                                            (Visible to students)
+                                        </Typography>
+                                    </Typography>
+                                }
                             />
 
                             <TextField

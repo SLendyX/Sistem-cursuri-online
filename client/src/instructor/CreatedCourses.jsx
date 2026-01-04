@@ -21,7 +21,7 @@ export default function CreatedCourses() {
 
     // 2. useEffect pentru a face fetch o singură dată
     useEffect(() => {
-        fetch("/api/my_courses")
+        fetch("/api/author/my_courses")
             .then(res => {
                 if (!res.ok) throw new Error("Network response was not ok");
                 return res.json();

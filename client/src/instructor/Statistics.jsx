@@ -15,7 +15,7 @@ export default function Statistics() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetch('/api/instructor/statistics')
+        fetch('/api/author/instructor/statistics')
             .then(async res => {
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error);

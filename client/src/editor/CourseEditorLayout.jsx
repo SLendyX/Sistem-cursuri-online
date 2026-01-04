@@ -6,6 +6,7 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSo
 import { CSS } from '@dnd-kit/utilities';
 import { restrictToVerticalAxis, restrictToParentElement } from '@dnd-kit/modifiers';
 import { LoggedInContext } from "../context/LoggedInContext";
+import { useQueryClient } from "@tanstack/react-query";
 
 // MUI Imports
 import {
@@ -24,6 +25,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 
 // 1. IMPORT BREADCRUMBS
 import Breadcrumbs from '../components/BreadCrumbs';
+import { useCourseStructure } from "../hooks/useCourseStructure";
 
 const drawerWidth = 300;
 
@@ -64,7 +66,9 @@ export default function CourseEditorLayout() {
     const location = useLocation();
     const { courseId, chapterId } = useParams();
     const { showAlert } = React.useContext(LoggedInContext);
+    const queryClient = useQueryClient()
 
+    
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
     // Route Matchers
@@ -78,28 +82,24 @@ export default function CourseEditorLayout() {
     const isLessonView = searchParams.get('view') === 'lessons';
     const isChapterMode = Boolean(currentLessonId || isLessonView);
 
+    const { data, isLoading, isFetching } = useCourseStructure(courseId);   
+
     // --- State ---
-    const [chapters, setChapters] = useState([]);
-    const [lessons, setLessons] = useState([]);
-    const [courseTitle, setCourseTitle] = useState(""); // 2. NEW STATE FOR TITLE
+    const chapters = data?.chapters || [];
+    const activeChapter = chapters.find(c => c.id == chapterId);
+    const lessons = activeChapter?.lessons || [];
+
+    const [courseTitle, setCourseTitle] = useState(data?.course.nume_curs || ""); // 2. NEW STATE FOR TITLE
 
     // Derived state
     const activeList = isChapterMode ? lessons : chapters;
-    const setActiveList = isChapterMode ? setLessons : setChapters;
 
     // --- Context Menu State ---
     const [contextMenu, setContextMenu] = useState(null);
     const [selectedItem, setSelectedItem] = useState(null);
 
     // 3. FETCH COURSE TITLE ON MOUNT
-    useEffect(() => {
-        fetch(`/api/courses/${courseId}`)
-            .then(res => res.json())
-            .then(data => {
-                if(data.nume_curs) setCourseTitle(data.nume_curs);
-            })
-            .catch(console.error);
-    }, [courseId]);
+
 
     // 4. GENERATE BREADCRUMBS
     const getBreadcrumbs = () => {
@@ -165,13 +165,13 @@ export default function CourseEditorLayout() {
 
     const confirmDelete = async () => {
         const endpoint = selectedItem.type === 'chapter'
-            ? `/api/chapters/${selectedItem.id}`
-            : `/api/lessons/${selectedItem.id}`;
+            ? `/api/author/chapters/${selectedItem.id}`
+            : `/api/author/lessons/${selectedItem.id}`;
 
         try {
             const res = await fetch(endpoint, { method: 'DELETE' });
             if (!res.ok) throw new Error("Delete failed");
-            setActiveList((items) => items.filter((i) => i.id !== selectedItem.id));
+            await queryClient.invalidateQueries(['course', courseId, 'structure']);
         } catch (error) {
             console.error(error);
             showAlert("Failed to delete item")
@@ -194,9 +194,9 @@ export default function CourseEditorLayout() {
         const newIndex = activeList.findIndex((item) => item.id === over.id);
         const newOrderedList = arrayMove(activeList, oldIndex, newIndex);
 
-        setActiveList(newOrderedList);
+        const endpoint = isChapterMode ? '/api/author/lessons/reorder' : '/api/author/chapters/reorder';
 
-        const endpoint = isChapterMode ? '/api/lessons/reorder' : '/api/chapters/reorder';
+        
 
         fetch(endpoint, {
             method: 'PUT',
@@ -205,6 +205,7 @@ export default function CourseEditorLayout() {
         })
             .then(res => {
                 if (!res.ok) throw new Error("Reorder failed");
+                
             })
             .catch(err => {
                 showAlert(err || "Reordering failed", "error")
@@ -230,20 +231,8 @@ export default function CourseEditorLayout() {
         navigate(`/instructor/course/${courseId}/edit`);
     }
 
-    useEffect(() => {
-        updateChapters()
-        setLessons([])
-    }, [courseId]);
-
-    useEffect(() => {
-        if (chapterId) {
-            updateLessons();
-        }
-    }, [chapterId]);
-
-
     function addModule() {
-        fetch("/api/chapters", {
+        fetch("/api/author/chapters", {
             method: 'POST',
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ courseId })
@@ -251,25 +240,14 @@ export default function CourseEditorLayout() {
             .then(async res => {
                 const data = await res.json()
                 if (!res.ok) throw new Error(data.error);
-                updateChapters()
                 if (showAlert) showAlert(data.message, "success");
+                await queryClient.invalidateQueries(['course', courseId, 'structure']);
             })
             .catch(err => showAlert(err.message || "Failed to add module", "error"));
     }
 
-    function updateChapters() {
-        fetch(`/api/courses/${courseId}/chapters?t=${new Date().getTime()}`)
-            .then(async res => {
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error);
-                const formattedData = data.map(c => ({ ...c, type: 'chapter' }));
-                setChapters(formattedData);
-            })
-            .catch(err => showAlert(err.message || "Failed to show chapters", "error"));
-    }
-
     function addLesson() {
-        fetch("/api/lessons", {
+        fetch("/api/author/lessons", {
             method: 'POST',
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ chapterId })
@@ -277,22 +255,10 @@ export default function CourseEditorLayout() {
             .then(async res => {
                 const data = await res.json()
                 if (!res.ok) throw new Error(data.error);
-                updateLessons()
                 if (showAlert) showAlert(data.message, "success");
+                await queryClient.invalidateQueries(['course', courseId, 'structure']);
             })
             .catch(err => showAlert(err.message || "Failed to add lesson", "error"));
-    }
-
-    function updateLessons() {
-        if (!chapterId) return;
-        fetch(`/api/chapters/${chapterId}/lessons?t=${new Date().getTime()}`)
-            .then(async res => {
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error);
-                const formattedData = data.map(l => ({ ...l, type: 'lesson' }));
-                setLessons(formattedData)
-            })
-            .catch(err => showAlert(err.message || "Failed to show lessons", "error"));
     }
 
     return (
@@ -342,7 +308,7 @@ export default function CourseEditorLayout() {
                                     >
                                         Back to Course
                                     </Button>
-                                )}
+                                ) || <Box sx={{ overflow: 'auto', p: 2, marginBottom: "8px" }} > </Box>}
 
                                 <Typography variant="subtitle1" fontWeight="bold">
                                     Course Curriculum
@@ -368,7 +334,7 @@ export default function CourseEditorLayout() {
                                             key={item.id}
                                             id={item.id}
                                             title={item.title}
-                                            type={item.type}
+                                            type={isChapterMode ? "lesson" : "chapter"}
                                             active={isChapterMode ? Number(currentLessonId) === item.id : Number(currentChapterId) === item.id}
                                             onClick={() => handleItemClick(item.id)}
                                             onDoubleClick={() => handleItemDoubleClick(item.id)}
@@ -419,7 +385,7 @@ export default function CourseEditorLayout() {
                 <Box component="main" sx={{ flexGrow: 1, p: 3, overflow: 'auto', width: "100%" }}>
                     {/* 5. RENDER BREADCRUMBS BEFORE OUTLET */}
                     <Breadcrumbs customItems={getBreadcrumbs()} />
-                    <Outlet context={{ items: activeList, setItems: setActiveList }} />
+                    <Outlet context={{ items: activeList, setItems: ()=>{} }} />
                 </Box>
             </Box>
         </Box >

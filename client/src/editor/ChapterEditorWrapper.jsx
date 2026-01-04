@@ -11,7 +11,7 @@ export default function () {
 
     const { data: chapter, isLoading, isFetching } = useQuery({
         queryKey: ['chapter', chapterId],
-        queryFn: () => fetch(`/api/chapters/${chapterId}`).then(res => res.json()),
+        queryFn: () => fetch(`/api/author/chapters/${chapterId}`).then(res => res.json()),
         staleTime: 0,
         refetchOnMount: 'always',
         keepPreviousData: false,

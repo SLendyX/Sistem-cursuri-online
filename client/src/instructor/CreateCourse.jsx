@@ -92,7 +92,7 @@ export default function CreateCourse() {
         data.append("category", formData.category);
         if (imageFile) data.append("image", imageFile);
 
-        fetch("/api/courses", {
+        fetch("/api/author/courses", {
             method: "POST",
             body: data
         })
@@ -164,7 +164,7 @@ export default function CreateCourse() {
                                 >
                                     <MenuItem value="usor">Easy</MenuItem>
                                     <MenuItem value="mediu">Medium</MenuItem>
-                                    <MenuItem value="greu">Hard</MenuItem>
+                                    <MenuItem value="avansat">Avansat</MenuItem>
                                 </TextField>
                             </Grid>
 

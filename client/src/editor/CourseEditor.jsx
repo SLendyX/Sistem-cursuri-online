@@ -56,7 +56,7 @@ export default function CourseEditor({courseId, initialData, queryClient}) {
             formData.append('image', dataToSave.imageFile);
         }
 
-        const response = await fetch(`/api/courses/${courseId}`, {
+        const response = await fetch(`/api/author/courses/${courseId}`, {
             method: 'PATCH',
             body: formData,
             keepalive: true, // Important for tab closing

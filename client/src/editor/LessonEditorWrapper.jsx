@@ -11,7 +11,7 @@ export default function () {
 
     const { data: lesson, isLoading, isFetching } = useQuery({
         queryKey: ['lesson', lessonId],
-        queryFn: () => fetch(`/api/lessons/${lessonId}`).then(res => res.json()),
+        queryFn: () => fetch(`/api/author/lessons/${lessonId}`).then(res => res.json()),
         staleTime: 0,
         keepPreviousData: false,
         refetchOnMount: 'always',

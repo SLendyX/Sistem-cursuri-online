@@ -11,6 +11,7 @@ import usersRouter from "./routes/users.js";
 import loginRouter from "./routes/login.js";
 import coursesRouter from "./routes/courses.js";
 import progressRouter from "./routes/progress.js";
+import authorRouter from "./routes/author.js"
 import path from "path";
 
 dotenv.config();
@@ -47,7 +48,7 @@ const authLimiter = rateLimit({
 });
 
 const generalLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
+    windowMs: 5 * 60 * 1000, // 15 minutes
     max: 100,
     message: 'Too many requests from this IP',
     standardHeaders: true,
@@ -55,11 +56,7 @@ const generalLimiter = rateLimit({
     skip: (req) => {
         // Skip rate limiting for all editor save/fetch endpoints
         const editorPaths = [
-            '/api/lessons/:id',
-            '/api/chapters/:id',
-            '/api/courses/:id',
-            '/api/quizzes/',
-            '/api/questions/'
+            '/api/author'
         ];
         
         return editorPaths.some(path => req.path.startsWith(path)) && 
@@ -80,6 +77,7 @@ app.use("/api/users", usersRouter); // sau app.use("/api", usersRouter);
 app.use("/api", loginRouter);
 app.use("/api", coursesRouter);
 app.use("/api", progressRouter);
+app.use("/api/author", authorRouter);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

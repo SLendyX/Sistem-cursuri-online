@@ -26,7 +26,7 @@ export default function ChapterEditor({chapterId, initialData, queryClient}) {
 
     // 2. DEFINE SAVE FUNCTION
     const handleSaveApi = useCallback(async (dataToSave) => {
-        const response = await fetch(`/api/chapters/${chapterId}`, {
+        const response = await fetch(`/api/author/chapters/${chapterId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
