@@ -18,7 +18,7 @@ export default function () {
         refetchOnWindowFocus: false
     });
 
-    if(isLoading || isFetching){
+    if(isLoading){
         return <Box p={4} display="flex" justifyContent="center"><CircularProgress /></Box>
     }
 

@@ -21,7 +21,7 @@ import LessonPlayer from './student_experience/LessonPlayer.jsx';
 import About from './general/About.jsx';
 import Register from './authentification/Register.jsx';
 import CreateCourse from './instructor/CreateCourse.jsx';
-import CourseEditorLayout from './editor/CourseEditorLayout.jsx';
+import CourseEditorLayoutWrapper from './editor/CourseEditorLayoutWrapper.jsx';
 import CreatedCourses from './instructor/CreatedCourses.jsx';
 import LessonEditorWrapper from './editor/LessonEditorWrapper.jsx';
 import ChapterEditorWrapper from './editor/ChapterEditorWrapper.jsx';
@@ -95,7 +95,7 @@ createRoot(document.getElementById('root')).render(
                 <Route path='my_courses' element={<CreatedCourses />} />
 
                 {/* Course Editor Routes */}
-                <Route path="course/:courseId/edit" element={<CourseEditorLayout />}>
+                <Route path="course/:courseId/edit" element={<CourseEditorLayoutWrapper />}>
                   <Route index element={<CourseEditorWrapper />} />
                   <Route path="chapter/:chapterId">
                     <Route index element={<ChapterEditorWrapper />} />

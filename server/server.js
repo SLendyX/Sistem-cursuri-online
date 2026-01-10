@@ -32,8 +32,8 @@ app.use(helmet({
 
 // 2. ✅ CORS - Restrict to your domain in production
 const corsOptions = {
-    origin: process.env.NODE_ENV === 'production' 
-        ? 'https://yourdomain.com' 
+    origin: process.env.NODE_ENV === 'production'
+        ? 'https://yourdomain.com'
         : 'http://localhost:5173',
     credentials: true,
     optionsSuccessStatus: 200
@@ -48,25 +48,25 @@ const authLimiter = rateLimit({
 });
 
 const generalLimiter = rateLimit({
-    windowMs: 5 * 60 * 1000, // 15 minutes
-    max: 100,
-    message: 'Too many requests from this IP',
+    windowMs: 1 * 60 * 1000, // 1 minute
+    limit: 100, // Limit each IP to 100 requests per `window`
+    standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+    legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+    message: "Too many requests from this IP, please try again in a minute."
+});
+
+const authorLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000, // 1 minute
+    limit: 300, // High ceiling for autosave
     standardHeaders: true,
     legacyHeaders: false,
-    skip: (req) => {
-        // Skip rate limiting for all editor save/fetch endpoints
-        const editorPaths = [
-            '/api/author'
-        ];
-        
-        return editorPaths.some(path => req.path.startsWith(path)) && 
-               (req.method === 'PATCH' || req.method === 'GET' || req.method === 'PUT');
-    }
+    message: "Autosave limit reached. Please pause editing for a moment."
 });
 
 // Apply to sensitive routes
 app.use("/api/login", authLimiter);
 app.use("/api/register", authLimiter);
+app.use("/api/author", authorLimiter)
 app.use("/api", generalLimiter); // All other API routes
 
 app.use(express.json({ limit: '10mb' })); // ✅ Limit JSON body size

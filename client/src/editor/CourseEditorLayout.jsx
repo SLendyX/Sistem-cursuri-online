@@ -61,44 +61,43 @@ function SortableSidebarItem({ id, title, type, active, onClick, onDoubleClick, 
     );
 }
 
-export default function CourseEditorLayout() {
+export default function CourseEditorLayout({courseId, lessonId, chapterId, initialData, isChapterMode, queryClient}) {
     const navigate = useNavigate();
-    const location = useLocation();
-    const { courseId, chapterId } = useParams();
     const { showAlert } = React.useContext(LoggedInContext);
-    const queryClient = useQueryClient()
 
-    
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
     // Route Matchers
-    const chapterMatch = useMatch("/instructor/course/:courseId/edit/chapter/:chapterId/*");
-    const currentChapterId = chapterMatch?.params?.chapterId;
+    // const chapterMatch = useMatch("/instructor/course/:courseId/edit/chapter/:chapterId/*");
+    // const chapterId = chapterMatch?.params?.chapterId;
 
-    const lessonMatch = useMatch("/instructor/course/:courseId/edit/chapter/:chapterId/lesson/:lessonId");
-    const currentLessonId = lessonMatch?.params?.lessonId;
+    // const lessonMatch = useMatch("/instructor/course/:courseId/edit/chapter/:chapterId/lesson/:lessonId");
+    // const lessonId = lessonMatch?.params?.lessonId;
 
-    const searchParams = new URLSearchParams(location.search);
-    const isLessonView = searchParams.get('view') === 'lessons';
-    const isChapterMode = Boolean(currentLessonId || isLessonView);
+    // const searchParams = new URLSearchParams(location.search);
+    // const isLessonView = searchParams.get('view') === 'lessons';
+    // const isChapterMode = Boolean(lessonId || isLessonView);
 
-    const { data, isLoading, isFetching } = useCourseStructure(courseId);   
+    // const { data, isLoading, isFetching } = useCourseStructure(courseId);
 
     // --- State ---
-    const chapters = data?.chapters || [];
+    const chapters = initialData?.chapters || [];
     const activeChapter = chapters.find(c => c.id == chapterId);
     const lessons = activeChapter?.lessons || [];
 
-    const [courseTitle, setCourseTitle] = useState(data?.course.nume_curs || ""); // 2. NEW STATE FOR TITLE
+    const [courseTitle, setCourseTitle] = useState(initialData?.course.nume_curs || ""); // 2. NEW STATE FOR TITLE
 
     // Derived state
-    const activeList = isChapterMode ? lessons : chapters;
+    const [activeList, setActiveList] = useState(isChapterMode ? lessons : chapters);
 
     // --- Context Menu State ---
     const [contextMenu, setContextMenu] = useState(null);
     const [selectedItem, setSelectedItem] = useState(null);
 
-    // 3. FETCH COURSE TITLE ON MOUNT
+
+    useEffect(() => {
+        setActiveList(isChapterMode ? lessons : chapters)
+    }, [isChapterMode, chapters, lessons])
 
 
     // 4. GENERATE BREADCRUMBS
@@ -111,18 +110,18 @@ export default function CourseEditorLayout() {
         ];
 
         // If inside a Chapter
-        if (currentChapterId) {
-            const currentChapter = chapters.find(c => c.id === Number(currentChapterId));
+        if (chapterId) {
+            const currentChapter = chapters.find(c => c.id === Number(chapterId));
             items.push({
                 label: currentChapter?.title || 'Chapter',
                 // Clicking this keeps us in "edit details" mode unless we explicitly want list view
-                path: `/instructor/course/${courseId}/edit/chapter/${currentChapterId}`
+                path: `/instructor/course/${courseId}/edit/chapter/${chapterId}`
             });
         }
 
         // If inside a Lesson
-        if (currentLessonId) {
-            const currentLesson = lessons.find(l => l.id === Number(currentLessonId));
+        if (lessonId) {
+            const currentLesson = lessons.find(l => l.id === Number(lessonId));
             items.push({
                 label: currentLesson?.title || 'Lesson',
                 path: '' // Current page, no link needed
@@ -164,6 +163,8 @@ export default function CourseEditorLayout() {
     };
 
     const confirmDelete = async () => {
+        console.log(selectedItem)
+
         const endpoint = selectedItem.type === 'chapter'
             ? `/api/author/chapters/${selectedItem.id}`
             : `/api/author/lessons/${selectedItem.id}`;
@@ -192,11 +193,15 @@ export default function CourseEditorLayout() {
 
         const oldIndex = activeList.findIndex((item) => item.id === active.id);
         const newIndex = activeList.findIndex((item) => item.id === over.id);
+
+        // 1. Calculate new order
         const newOrderedList = arrayMove(activeList, oldIndex, newIndex);
 
-        const endpoint = isChapterMode ? '/api/author/lessons/reorder' : '/api/author/chapters/reorder';
+        // 2. INSTANTLY update Local State (The user sees this immediately)
+        setActiveList(newOrderedList);
 
-        
+        // 3. Send Request in Background
+        const endpoint = isChapterMode ? '/api/author/lessons/reorder' : '/api/author/chapters/reorder';
 
         fetch(endpoint, {
             method: 'PUT',
@@ -205,17 +210,22 @@ export default function CourseEditorLayout() {
         })
             .then(res => {
                 if (!res.ok) throw new Error("Reorder failed");
-                
+                // Optional: Refetch to ensure data consistency, 
+                // but since we updated local state, we don't strictly need to wait for this.
+                queryClient.invalidateQueries(['chapter', chapterId]);
             })
             .catch(err => {
-                showAlert(err || "Reordering failed", "error")
+                // 4. Rollback on Error
+                showAlert("Reorder failed, reverting...", "error");
+                setActiveList(activeList); // Revert to the old list
             });
     }
+
 
     // --- CLICK HANDLERS ---
     function handleItemClick(id) {
         if (isChapterMode) {
-            navigate(`chapter/${currentChapterId}/lesson/${id}`);
+            navigate(`chapter/${chapterId}/lesson/${id}`);
         } else {
             navigate(`chapter/${id}`);
         }
@@ -240,8 +250,8 @@ export default function CourseEditorLayout() {
             .then(async res => {
                 const data = await res.json()
                 if (!res.ok) throw new Error(data.error);
+                queryClient.invalidateQueries(['course', courseId, 'structure']);
                 if (showAlert) showAlert(data.message, "success");
-                await queryClient.invalidateQueries(['course', courseId, 'structure']);
             })
             .catch(err => showAlert(err.message || "Failed to add module", "error"));
     }
@@ -335,10 +345,10 @@ export default function CourseEditorLayout() {
                                             id={item.id}
                                             title={item.title}
                                             type={isChapterMode ? "lesson" : "chapter"}
-                                            active={isChapterMode ? Number(currentLessonId) === item.id : Number(currentChapterId) === item.id}
+                                            active={isChapterMode ? Number(lessonId) === item.id : Number(chapterId) === item.id}
                                             onClick={() => handleItemClick(item.id)}
                                             onDoubleClick={() => handleItemDoubleClick(item.id)}
-                                            onContextMenu={(e) => handleContextMenu(e, item)}
+                                            onContextMenu={(e) => handleContextMenu(e, {...item, type: isChapterMode ? "lesson" : "chapter"})}
                                         />
                                     ))}
                                 </List>
@@ -385,7 +395,7 @@ export default function CourseEditorLayout() {
                 <Box component="main" sx={{ flexGrow: 1, p: 3, overflow: 'auto', width: "100%" }}>
                     {/* 5. RENDER BREADCRUMBS BEFORE OUTLET */}
                     <Breadcrumbs customItems={getBreadcrumbs()} />
-                    <Outlet context={{ items: activeList, setItems: ()=>{} }} />
+                    <Outlet context={{ items: activeList, setItems: () => { } }} />
                 </Box>
             </Box>
         </Box >

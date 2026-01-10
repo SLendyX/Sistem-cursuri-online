@@ -171,6 +171,8 @@ router.get("/courses/:id/structure", requireProfessor, async (req, res) => {
             return res.status(404).json({ error: "Course not found" });
         }
         
+        console.log(courseId)
+
         // Get ALL chapters AND lessons in one optimized query
         const structure = await conn.query(`
             SELECT 
@@ -179,12 +181,14 @@ router.get("/courses/:id/structure", requireProfessor, async (req, res) => {
                 ch.position as chapter_position,
                 l.id as lesson_id,
                 l.title as lesson_title,
-                l.position as lesson_position,
+                l.position as lesson_position
             FROM chapter ch
             LEFT JOIN lesson l ON ch.id = l.chapter_id
             WHERE ch.curs_id = ?
             ORDER BY ch.position ASC, l.position ASC
         `, [courseId]);
+
+        console.log(courseId, structure)
         
         // Transform flat result into nested structure
         const chaptersMap = new Map();
