@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catalog Studenți</title>
+    <link rel="stylesheet" href="index.css"/>
+</head>
+<body>
+
+    <h1>Catalog Studenți</h1>
+
+    <div class="form-container">
+        <h3>Adaugă Student Nou</h3>
+        <form id="studentForm">
+            <input type="text" id="nume" placeholder="Nume Student" pattern="[A-Za-z\s]+" title="The name should only contain letters and spaces" required>
+            <select id="an" required>
+                <option value="" disabled selected>Alege Anul</option>
+                <option value="1">Anul 1</option>
+                <option value="2">Anul 2</option>
+                <option value="3">Anul 3</option>
+                <option value="4">Anul 4</option>
+            </select>
+            <input type="number" id="media" placeholder="Media Generală" step="0.01" min="1" max="10" required>
+            <button type="submit">Adaugă în Catalog</button>
+        </form>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nume</th>
+                <th>An Studiu</th>
+                <th>Media</th>
+            </tr>
+        </thead>
+        <tbody id="listaStudenti">
+            </tbody>
+    </table>
+
+    <script src="script.js"></script>
+</body>
+</html>

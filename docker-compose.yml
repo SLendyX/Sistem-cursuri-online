@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  # Serviciul Web (PHP + Apache)
+  web:
+    build: .
+    ports:
+      - "8080:80"  # Accesăm site-ul pe localhost:8080
+    volumes:
+      - .:/var/www/html # Mapăm fișierele tale în container
+    depends_on:
+      - db
+
+  # Serviciul Bază de Date (MySQL)
+  db:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_DATABASE: catalog_studenti
+      MYSQL_USER: user_catalog
+      MYSQL_PASSWORD: parola_secreta
+      MYSQL_ROOT_PASSWORD: rootpassword
+    volumes:
+      # Persistentă datelor (să nu se șteargă când oprești Docker)
+      - db_data:/var/lib/mysql
+      # Importă AUTOMAT tabelul la prima pornire
+      - ./database.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+volumes:
+  db_data:
