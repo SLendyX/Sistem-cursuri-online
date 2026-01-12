@@ -11,7 +11,7 @@ import useAutoSave from '../hooks/useAutoSave';
 
 export default function ChapterEditor({chapterId, initialData, queryClient}) {
     const location = useLocation();
-    const { setItems } = useOutletContext(); // Only need setItems for sidebar updates
+    const { setItems, courseId } = useOutletContext(); // Only need setItems for sidebar updates
 
     // Check query param
     const searchParams = new URLSearchParams(location.search);
@@ -49,11 +49,14 @@ export default function ChapterEditor({chapterId, initialData, queryClient}) {
         if (resData.version) setVersion(resData.version);
 
         // ✅ Update Sidebar Context immediately
-        setItems(prev => prev.map(item =>
-            item.id === Number(chapterId) && item.type === 'chapter'
+        setItems(prev => prev.map(item =>{
+            return item.id === Number(chapterId)
                 ? { ...item, title: dataToSave.title }
                 : item
+            }
         ));
+
+        queryClient.invalidateQueries(['course', courseId, 'structure']);
 
     }, [chapterId, version, setItems]);
 

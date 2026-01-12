@@ -94,7 +94,6 @@ export default function CourseEditorLayout({courseId, lessonId, chapterId, initi
     const [contextMenu, setContextMenu] = useState(null);
     const [selectedItem, setSelectedItem] = useState(null);
 
-
     useEffect(() => {
         setActiveList(isChapterMode ? lessons : chapters)
     }, [isChapterMode, chapters, lessons])
@@ -395,7 +394,7 @@ export default function CourseEditorLayout({courseId, lessonId, chapterId, initi
                 <Box component="main" sx={{ flexGrow: 1, p: 3, overflow: 'auto', width: "100%" }}>
                     {/* 5. RENDER BREADCRUMBS BEFORE OUTLET */}
                     <Breadcrumbs customItems={getBreadcrumbs()} />
-                    <Outlet context={{ items: activeList, setItems: () => { } }} />
+                    <Outlet context={{ items: activeList, setItems: setActiveList, courseId:courseId }} />
                 </Box>
             </Box>
         </Box >

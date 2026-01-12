@@ -22,7 +22,7 @@ import { LoggedInContext } from "../context/LoggedInContext";
 import useAutoSave from '../hooks/useAutoSave'; // ✅ YOUR NEW HOOK
 
 export default function LessonEditor({ lessonId, initialData, queryClient }) {
-    const { setItems } = useOutletContext();
+    const { setItems, courseId } = useOutletContext();
     const { showAlert } = React.useContext(LoggedInContext);
 
     // ---------------------------------------------------------
@@ -69,6 +69,8 @@ export default function LessonEditor({ lessonId, initialData, queryClient }) {
         if (setItems) {
             setItems(prev => prev.map(i => i.id === Number(lessonId) ? { ...i, title: dataToSave.title } : i));
         }
+
+        queryClient.invalidateQueries(['course', courseId, 'structure']);
     };
 
     const handleConflict = () => {
