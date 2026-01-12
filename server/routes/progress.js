@@ -118,7 +118,7 @@ async function updateCourseProgress(conn, userId, lessonId) {
                 (SELECT COUNT(*) 
                  FROM lesson l2
                  JOIN chapter ch2 ON l2.chapter_id = ch2.id
-                 WHERE ch2.curs_id = ?
+                 WHERE ch2.curs_id = ? AND l2.is_published
                 ) as total
              FROM lesson l
              JOIN chapter ch ON l.chapter_id = ch.id
@@ -181,12 +181,12 @@ router.get("/enrollments", async (req, res) => {
                  FROM lesson_progress lp
                  JOIN lesson l ON lp.lesson_id = l.id
                  JOIN chapter ch ON l.chapter_id = ch.id
-                 WHERE ch.curs_id = e.course_id AND lp.user_id = e.user_id AND lp.is_completed = 1
+                 WHERE ch.curs_id = e.course_id AND l.is_published AND lp.user_id = e.user_id AND lp.is_completed = 1
                 ) as completed_lessons,
                 (SELECT COUNT(*)
                  FROM lesson l
                  JOIN chapter ch ON l.chapter_id = ch.id
-                 WHERE ch.curs_id = e.course_id
+                 WHERE ch.curs_id = e.course_id AND l.is_published
                 ) as total_lessons
              FROM enrollment e
              JOIN curs c ON e.course_id = c.curs_id

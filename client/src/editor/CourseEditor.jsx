@@ -124,7 +124,7 @@ export default function CourseEditor({courseId, initialData, queryClient}) {
 
         setIsDeleting(true);
         try {
-            const res = await fetch(`/api/courses/${courseId}`, { method: 'DELETE' });
+            const res = await fetch(`/api/author/courses/${courseId}`, { method: 'DELETE' });
             const data = await res.json();
 
             if (!res.ok) {

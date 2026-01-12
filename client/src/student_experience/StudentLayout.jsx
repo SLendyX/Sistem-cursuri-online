@@ -11,19 +11,19 @@ export default function StudentLayout() {
     return (
         <>
             <CssBaseline />
-            <Box 
-                sx={{ 
-                    display: 'flex', 
-                    flexDirection: 'column', 
+            <Box
+                sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
                     minHeight: '100vh',
-                    bgcolor: 'background.default' 
+                    bgcolor: 'background.default'
                 }}
             >
                 <Nav />
-                
-                <Box 
-                    component="main" 
-                    sx={{ 
+
+                <Box
+                    component="main"
+                    sx={{
                         flexGrow: 1,
                         width: '100%',
                         display: 'flex',

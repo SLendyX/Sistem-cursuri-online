@@ -13,21 +13,21 @@ const verifyToken = (req) => {
     if (!token) return null;
     try {
         return jwt.verify(token, process.env.JWT_SECRET).userId;
-    } catch (err) { 
-        return null; 
+    } catch (err) {
+        return null;
     }
 };
 
 router.get("/", async (req, res) => {
-  try {
-    const conn = await pool.getConnection();
-    const rows = await conn.query("SELECT * FROM user LIMIT 30");
-    conn.release();
-    res.json(rows);
+    try {
+        const conn = await pool.getConnection();
+        const rows = await conn.query("SELECT * FROM user LIMIT 30");
+        conn.release();
+        res.json(rows);
 
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // PATCH /api/profile - Update user profile
@@ -39,7 +39,7 @@ router.patch("/profile", async (req, res) => {
 
     try {
         const conn = await pool.getConnection();
-        
+
         await conn.query(
             "UPDATE user SET name = ? WHERE id = ?",
             [name, userId]
@@ -58,41 +58,84 @@ router.delete("/profile", async (req, res) => {
     const userId = verifyToken(req);
     if (!userId) return res.status(401).json({ error: "Not authenticated" });
 
-    try {
-        const conn = await pool.getConnection();
+    let conn; // 1. Define outside so 'catch' and 'finally' can access it
 
-        // Check if user is a professor with courses that have students
-        const [user] = await conn.query("SELECT type FROM user WHERE id = ?", [userId]);
-        
+    try {
+        conn = await pool.getConnection();
+
+        // 2. Start Transaction (Crucial for atomic deletes)
+        await conn.beginTransaction();
+
+        // --- CHECK: IS PROFESSOR? ---
+        // Destructure [rows] because query returns [rows, fields]
+        const [users] = await conn.query("SELECT type FROM user WHERE id = ?", [userId]);
+        const user = users[0]; // Get the first row
+
         if (user?.type === 'professor') {
-            const courses = await conn.query(
+            const [courses] = await conn.query(
                 "SELECT curs_id FROM curs WHERE autor_id = ?",
                 [userId]
             );
 
             for (const course of courses) {
-                const [enrollment] = await conn.query(
+                const [rows] = await conn.query(
                     "SELECT COUNT(*) as count FROM enrollment WHERE course_id = ?",
                     [course.curs_id]
                 );
 
-                if (enrollment.count > 0) {
-                    conn.release();
-                    return res.status(400).json({ 
-                        error: "Cannot delete account. You have courses with enrolled students. Please remove students first or transfer course ownership."
+                // rows[0].count checks the count
+                if (rows[0].count > 0) {
+                    await conn.rollback(); // Cancel transaction before returning
+                    // Connection released in 'finally' block
+                    return res.status(400).json({
+                        error: "Cannot delete account. You have courses with enrolled students."
                     });
                 }
             }
         }
 
-        // Delete user (CASCADE will handle related records)
+        // --- GET ENROLLMENTS BEFORE DELETE ---
+        const enrollments = await conn.query(
+            `SELECT e.course_id FROM enrollment AS e WHERE e.user_id = ?`,
+            [userId]
+        );
+
+        // --- DELETE USER ---
         await conn.query("DELETE FROM user WHERE id = ?", [userId]);
 
-        conn.release();
+        // --- UPDATE COURSE RATINGS ---
+        // Fix: Added 'const', fixed destructuring, fixed variable naming
+        for (const { course_id } of enrollments) {
+            const rows = await conn.query(
+                "SELECT AVG(rating) as avg FROM reviews WHERE course_id = ?",
+                [course_id] // Use the snake_case variable from destructuring
+            );
+
+            const avgRating = rows[0]?.avg;
+
+            await conn.query(
+                `UPDATE curs 
+                SET rating = ?, studenti_inrolati = GREATEST(0, studenti_inrolati - 1) 
+                WHERE curs_id = ?`,
+                [Number(avgRating || 0), course_id]
+            );
+
+
+        }
+
+        // 3. Commit changes
+        await conn.commit();
         res.json({ message: "Account deleted successfully" });
+
     } catch (err) {
         console.error(err);
+        // 4. Rollback changes if ANY error occurs
+        if (conn) await conn.rollback();
         res.status(500).json({ error: "Failed to delete account" });
+
+    } finally {
+        // 5. Always release connection (prevents server hanging)
+        if (conn) conn.release();
     }
 });
 
