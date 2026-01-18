@@ -12,6 +12,7 @@ import loginRouter from "./routes/login.js";
 import coursesRouter from "./routes/courses.js";
 import progressRouter from "./routes/progress.js";
 import authorRouter from "./routes/author.js"
+import quizzesRouter from "./routes/quizes.js"
 import path from "path";
 
 dotenv.config();
@@ -78,6 +79,8 @@ app.use("/api", loginRouter);
 app.use("/api", coursesRouter);
 app.use("/api", progressRouter);
 app.use("/api/author", authorRouter);
+app.use("/api/quizzes", quizzesRouter);
+app.use("/api/author/quizzes", quizzesRouter); // For instructor routes
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

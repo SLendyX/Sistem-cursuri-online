@@ -29,6 +29,8 @@ import CourseEditorWrapper from './editor/CourseEditorWrapper.jsx';
 import Statistics from './instructor/Statistics.jsx'; // NEW
 import MyLearning from './student_experience/MyLearning.jsx'; // NEW
 import InstructorProfile from './student_experience/InstructorProfile.jsx';
+import QuizEditor from './editor/QuizEditor.jsx';
+import QuizView from './student_experience/QuizView.jsx';
 // Guards
 import RequireAuth from './protected/RequireAuth.jsx';
 import PublicOnlyRoute from './protected/PublicOnlyRoute.jsx';
@@ -67,6 +69,7 @@ createRoot(document.getElementById('root')).render(
               </Route>
               {/* Instructor Public Profile */}
               <Route path="/instructor_profile/:instructorId" element={<InstructorProfile />} />
+              <Route path="lesson/:lessonId/quiz" element={<QuizView />} />
             </Route>
 
             {/* ================================================= */}
@@ -96,10 +99,11 @@ createRoot(document.getElementById('root')).render(
 
                 {/* Course Editor Routes */}
                 <Route path="course/:courseId/edit" element={<CourseEditorLayoutWrapper />}>
+                  <Route path="lesson/:lessonId/quiz/edit" element={<QuizEditor />} />
                   <Route index element={<CourseEditorWrapper />} />
                   <Route path="chapter/:chapterId">
                     <Route index element={<ChapterEditorWrapper />} />
-                    <Route path="lesson/:lessonId" element={<LessonEditorWrapper/>} />
+                    <Route path="lesson/:lessonId" element={<LessonEditorWrapper />} />
                   </Route>
                 </Route>
               </Route>

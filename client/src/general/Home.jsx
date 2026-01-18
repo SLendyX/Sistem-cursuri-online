@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import { useNavigate } from "react-router";
 import CourseCard from "../course_componenents/CourseCard";
+import { LoggedInContext } from '../context/LoggedInContext';
 
 // MUI Imports
 import {
@@ -16,6 +17,7 @@ export default function Home() {
     const navigate = useNavigate();
     const [latestCourses, setLatestCourses] = useState([]);
     const [loading, setLoading] = useState(true);
+    const { isLogged } = useContext(LoggedInContext);
 
     useEffect(() => {
         // Fetch only the latest 3 published courses
@@ -186,30 +188,32 @@ export default function Home() {
             </Box>
 
             {/* Call to Action */}
-            <Container maxWidth="md" sx={{ py: 8, textAlign: 'center' }}>
-                <Paper elevation={3} sx={{ p: 6, borderRadius: 3, bgcolor: 'primary.main', color: 'white' }}>
-                    <Typography variant="h4" fontWeight="bold" gutterBottom>
-                        Ready to Start Learning?
-                    </Typography>
-                    <Typography variant="body1" sx={{ mb: 4, opacity: 0.9 }}>
-                        Join thousands of students already learning on Learnify
-                    </Typography>
-                    <Button
-                        variant="contained"
-                        size="large"
-                        onClick={() => navigate('/register')}
-                        sx={{
-                            bgcolor: 'white',
-                            color: 'primary.main',
-                            px: 4,
-                            py: 1.5,
-                            '&:hover': { bgcolor: 'grey.100' }
-                        }}
-                    >
-                        Get Started for Free
-                    </Button>
-                </Paper>
-            </Container>
+            {!isLogged &&
+                <Container maxWidth="md" sx={{ py: 8, textAlign: 'center' }}>
+                    <Paper elevation={3} sx={{ p: 6, borderRadius: 3, bgcolor: 'primary.main', color: 'white' }}>
+                        <Typography variant="h4" fontWeight="bold" gutterBottom>
+                            Ready to Start Learning?
+                        </Typography>
+                        <Typography variant="body1" sx={{ mb: 4, opacity: 0.9 }}>
+                            Join thousands of students already learning on Learnify
+                        </Typography>
+                        <Button
+                            variant="contained"
+                            size="large"
+                            onClick={() => navigate('/register')}
+                            sx={{
+                                bgcolor: 'white',
+                                color: 'primary.main',
+                                px: 4,
+                                py: 1.5,
+                                '&:hover': { bgcolor: 'grey.100' }
+                            }}
+                        >
+                            Get Started for Free
+                        </Button>
+                    </Paper>
+                </Container>
+            }
         </Box>
     );
 }
