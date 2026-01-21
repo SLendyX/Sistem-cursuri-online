@@ -93,10 +93,10 @@ export default function () {
                       {/* UPDATED - Now links to /my-learning for students */}
                       <MenuItem onClick={handleCloseUserMenu}>
                         <NavLink 
-                          to={userData?.type === 'professor' ? "/instructor/my_courses" : "/my-learning"} 
+                          to="/my-learning" 
                           className="dropdown-item"
                         >
-                          My Courses
+                          My Learning
                         </NavLink>
                       </MenuItem>
 
